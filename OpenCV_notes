@@ -1,0 +1,51 @@
+Stuff that was mentioned in the meeting
+	OpenCV uses BGR format. Basically just the opposite of *everything* else
+	(Here's why: https://www.learnopencv.com/why-does-opencv-use-bgr-color-format/)
+	
+	OpenCV uses numpy arrays. If you're familiar with numpy, you'll use numpy matrices and can do whatever math you want with them
+	When you're showing an image (to a person) the image has to be an array holding ints of type np.uint8, but you can use any array you want before that. So if I want to hold 16 bit values or average values of pixels, I can make an array of floats:
+		myarray = np.zeros((Height, Width, Channels), dtype=np.float16)
+	Then I can add something to make them outside of 0-255:
+		myarray = myarray * 1.23456
+	And that's fine as long as the shown image is the right type
+		cv.imshow("image", myarray.astype(np.uint8))
+
+
+Basic openCV functions:
+	
+	image = cv.imread("filename.png", mode)
+		opens an image, probably won't be used
+		modes are 0 (grayscale image), or 1 (color image)
+
+
+	cv.imwrite("filename.png", array)
+		saves a video frame as a png
+
+	cap = cv.VideoCapture(source)
+		Reads a video. The video can be a camera (which I think is usually 0) or a path to a file. cap is the "video object"
+	
+	ret, frame = cap.read()
+
+		creates an array that is a frame of the video. every time you call cap.read() it will return the next frame
+		ret is just if it failed, used for "if ret == badthings: break" stuff (end of the video)
+
+	cv.imshow("name of window", array)
+		shows an image in a window that is name "name of window"
+
+		For videos, this will show a frame. To show video, you just use a while loop to alternate between:
+			while(True):
+				ret, frame = cap.read()
+				cv.imshow("video",frame)
+
+	cv.cvtColor(frame/array, cv.COLOR_THIS2THAT)
+		converts one type of image to another. THIS2THAT can be a lot of things, but we will most likely use cv.BGR2GRAY most of the time, because certain functions require a grayscale image
+
+	cv.threshold is important. I don't remember the exact syntax but it creates binary images. You can choose what value is used for the threshold (I can make an image so all pixels below a threshold are zero, and anything above the threshold is my choice of 1-255). You can also do it the opposite way (above the threshold is zero)
+
+	We used cv.CascadeClassifier, which is what you'll likely be using. I don't know a ton about it though
+		There's also a detection method called detectMultiscale, which might be relevant
+
+	
+
+	
+
