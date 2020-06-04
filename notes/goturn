@@ -1,0 +1,9 @@
+(I'm calling the Computer Vision assignment on object tracking Grant's object tracker)
+Goturn works by receiving as input the current frame and the previous frame:
+
+Different from Grant's OT because that was only given coordinates and a contour
+This means it is not simply looking for a nearby object, but has a reference to the object
+
+"Local object detectors" are comparable to goturn except in cases of occlusion
+
+
