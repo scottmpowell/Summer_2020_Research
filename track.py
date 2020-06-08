@@ -7,9 +7,9 @@ import cv2 as cv
 import numpy as np
 import sys
 
-tracker = cv.TrackerCSRT_create()
+tracker = cv.TrackerMOSSE_create()
 
-if len(sys.argv) > 2:
+if len(sys.argv) != 4:
     video = cv.VideoCapture(sys.argv[1])
 else:
     video = cv.VideoCapture(0)
@@ -20,6 +20,7 @@ ok, frame = video.read()
 bbox = cv.selectROI(frame, False)
 cv.destroyAllWindows()
 ok = tracker.init(frame,bbox)
+video.set(CV_CAP_PROP_FPS, 10)
 
 
 
