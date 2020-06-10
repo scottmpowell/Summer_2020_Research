@@ -10,12 +10,12 @@ import sys
 
 
 cv.namedWindow("Tracking")
-
+#net = cv.dnn.readNetFromCaffe('goturn.prototext', 'goturn.caffemodel')
 class trackee:
 
     # Inititializer
     def __init__(self, bbox, number):
-        self.tracker = cv.TrackerCSRT_create()
+        self.tracker = cv.TrackerGOTURN_create()
         self.bbox = bbox
         self.number = number
         self.tracker.init(frame, self.bbox)
@@ -43,6 +43,12 @@ def begin_track():
         is_tracking = True
     cv.destroyAllWindows()
 
+"""
+Plays the video, with trackers. Called at the beginning of the program and also every time pause is set to false
+"""
+def play_video():
+    global frame, bbox, video, is_tracking, trackers
+
 if __name__ == "__main__":
 
     """
@@ -51,6 +57,7 @@ if __name__ == "__main__":
     global frame, bbox, video, tracker, is_tracking, trackers, pause
     is_tracking = False
     trackers = dict()
+    pause = False
 
     """
     If a file is specified, open the file, otherwise take from the camera
@@ -59,6 +66,11 @@ if __name__ == "__main__":
         video = cv.VideoCapture(sys.argv[1])
     else:
         video = cv.VideoCapture(0)
+
+    # Exit if video not opened
+    if not video.isOpened():
+        print("Could not open video")
+        sys.exit()
 
     video.set(cv.CAP_PROP_FPS, 100)
 
