@@ -9,13 +9,14 @@ import sys
 
 
 
+face_cascade = cv.CascadeClassifier(cv.data.haarcascades + "haarcascade_frontalface_default.xml")
 cv.namedWindow("Tracking")
 #net = cv.dnn.readNetFromCaffe('goturn.prototext', 'goturn.caffemodel')
 class trackee:
 
     # Inititializer
     def __init__(self, bbox, number):
-        self.tracker = cv.TrackerGOTURN_create()
+        self.tracker = cv.TrackerCSRT_create()
         self.bbox = bbox
         self.number = number
         self.tracker.init(frame, self.bbox)
@@ -30,7 +31,7 @@ class trackee:
 Begin tracking object. Video will pause on current frame and allow selection of a ROI to be tracked
 """
 def begin_track():
-    global frame, bbox, video, is_tracking, trackers
+    global frame, bbox, video, is_tracking, trackers, tracker_counter
     tracker_counter = 1
     while True: 
         bbox = cv.selectROI(frame, False)
@@ -42,6 +43,20 @@ def begin_track():
 
         is_tracking = True
     cv.destroyAllWindows()
+
+def delete_tracker(bbox):
+    global trackers
+    for key in trackers:
+        if trackers[key].bbox == 0:
+            break
+        
+    return
+
+def handler(event, x, y, flags, param):
+    if deleting == True:
+        return
+        
+
 
 """
 Plays the video, with trackers. Called at the beginning of the program and also every time pause is set to false
@@ -74,9 +89,11 @@ if __name__ == "__main__":
 
     video.set(cv.CAP_PROP_FPS, 100)
 
+    cv.setMouseCallback("Tracking", handler)
 
 
     while True:
+
         # Read a new frame
         cap_ret, frame = video.read()
         if not cap_ret:
@@ -84,6 +101,11 @@ if __name__ == "__main__":
         # Start timer
         timer = cv.getTickCount()
 
+        gray = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
+        detected_faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+
+        for (column, row, width, height) in detected_faces:
+            cv.rectangle(frame,(column, row),(column + width, row + height),(0, 255, 0),2)
         # Update tracker, if applicable
         if is_tracking:
             for key in trackers:
