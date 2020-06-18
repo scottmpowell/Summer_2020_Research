@@ -1,16 +1,12 @@
 from imutils.video import VideoStream
 from imutils.video import FPS
-from visualization_utils import show_results
-from PIL import Image
-from detector import detect_faces
 import argparse
 import imutils
 import time
-import bcolz
 import cv2 as cv
 import numpy as np
 import sys
-import torch
+
 
 
 face_cascade = cv.CascadeClassifier(cv.data.haarcascades + "haarcascade_frontalface_default.xml")
@@ -21,7 +17,7 @@ cv.namedWindow("Tracking")
 class trackee:
     # Inititializer
     def __init__(self, bbox, number):
-        self.tracker = cv.TrackerCSRT_create()
+        self.tracker = cv.TrackerMOSSE_create()
         self.bbox = bbox
         self.number = number
         self.tracker.init(frame, self.bbox)
@@ -29,26 +25,20 @@ class trackee:
     def __str__(self):
         data = "Tracking Object: " + str(self.number) + " Bbox:" + str(self.bbox)
         return data
-
-    """
-    Returns True if coordinates are within the tracker's bounding box, and False otherwise
-    """
-    def matches(self, x, y):
-        return (self.bbox[0] <= x <= self.bbox[0] + self.bbox[2] and self.bbox[1] <= y <= self.bbox[1] + self.bbox[3])
-
-
 """
 Deletes the first trackee in trackers that has a bbox encapsulating given coordinates
 """
 def delete_tracker(x, y):
     global trackers, frame, show
+    print(x,y)
     
     for key in trackers:
-        if trackers[key].matches(x, y):
-            trackers.pop(key)
-            show = frame.copy()
-            redraw()
-            break
+        if trackers[key].bbox[0] <= x <= trackers[key].bbox[0] + trackers[key].bbox[2]:
+            if trackers[key].bbox[1] <= y <= trackers[key].bbox[1] + trackers[key].bbox[3]:
+                trackers.pop(key)
+                show = frame.copy()
+                redraw()
+                break
     return
 
 def check_commands():
@@ -61,15 +51,12 @@ def check_commands():
             pause = not pause
         elif k == ord('s'):
             begin_track()
-        elif k == ord('w'):
-            cv.imwrite("slice.png", frame)
         elif k == ord('x'):
-            if pause:
-                if is_deleting == True:
-                    show = frame.copy()
-                    redraw()
+            if is_deleting == True:
+                show = frame.copy()
+                redraw()
 
-                is_deleting = not is_deleting
+            is_deleting = not is_deleting
 
 """
 Begin tracking object. Video will pause on current frame and allow selection of a ROI to be tracked
@@ -156,7 +143,7 @@ if __name__ == "__main__":
         print("Could not open video")
         sys.exit()
 
-    video.set(cv.CAP_PROP_FPS, 10)
+    video.set(cv.CAP_PROP_FPS, 100)
 
     cv.setMouseCallback("Tracking", handler)
 
@@ -173,20 +160,16 @@ if __name__ == "__main__":
             break
 
         show = frame.copy()
-        img_RGB = cv.cvtColor(show, cv.COLOR_BGR2RGB)
-        im_pil = Image.fromarray(img_RGB)
 
-        bounding_boxes, landmarks = detect_faces(im_pil)
-        image = show_results(im_pil, bounding_boxes, landmarks)
-        show = np.asarray(image)
         # Start timer
         timer = cv.getTickCount()
 
         gray = cv.cvtColor(show, cv.COLOR_BGR2GRAY)
         detected_faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-        for (column, row, width, height) in detected_faces:
-            cv.rectangle(show,(column, row),(column + width, row + height),(0, 255, 0),2)
+        for bbox in detected_faces:
+            trackers[tracker_counter] = trackee(bbox, tracker_counter)
+            tracker_counter += 1
 
         # Update tracked objects
         redraw()
