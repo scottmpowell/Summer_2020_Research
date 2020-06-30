@@ -1,0 +1,88 @@
+Face Recognition Pipeline
+
+Bing Image Search
+-------------------------
+Script used for dataset creation. Input is a name, and it returns images gathered
+using Bing's Search API, which is part of Microsoft Cognitive Services. The key
+is only available for 7 days, so to obtain more images, a new key is required. The
+service is also available in a paid form.
+*Dependencies: NONE
+
+	python bing_search.py --query "first last" \
+		--output dataset/"name" \
+		--number int
+
+Face Alignment
+-------------------------
+Input is the set of images obtained for the customized dataset. It needs to be a folder
+with a subset of folders in it (i.e. a group with multiple subjects). Performs face alignment
+by detecting the face in the image, obtaining the bounding box and facial landmarks,
+and cropping/warping around these points. It saves the cropped images to a folder, which
+are then used to train the recognition model.
+*Dependencies: align_trans.py, box_utils.py, detector.py, first_stage.py,
+get_nets.py, matlab_cp2tform, onet.npy, pnet.npy, rnet.npy
+
+	python face_align.py --dataset dataset/"name" \
+		--align cropped/"name"
+		--cropsize int (optional)
+
+Create Image Data
+-------------------------
+Input is the dataset of cropped images with the faces aligned. It passes the images through
+the MTCNN detector and identifies the bounding box and facial landmarks again. However, it now
+recrops the image specifically to the bounding box and saves the data in a compressed numpy file.
+The size of the compressed image is either (160, 160) or (224, 224), depending on the recognition
+model being used (160 for Keras FaceNet, 224 for Keras VGGFace).
+	
+	python create_data.py --train cropped/"name" \
+		--output files/"name" \
+		--model "facenet" or "vgg"
+
+Obtain Embeddings of Facial Features
+-------------------------
+Input is the file containing the compressed data for all cropped and detected images. This
+program uses either the Keras FaceNet model (trained on MS-1M) or the Keras VGGFace model
+(trained on VGGFace2), which return either 128d or 2048d embeddings, respectively. These 
+embeddings are subsequently compared to embeddings obtained from video frames in order
+to recognize identities. 
+	
+	Keras FaceNet
+	Creates 128d embeddings.
+	python embeddings.py --data files/"name.npz" \
+		--output files/"name"
+
+	Keras VGGFace
+	Additional option of creating 2048d embeddings or 128d embeddings.
+	python embeddings_vgg.py --data files/"name.npz" \
+		--output files/"name" \
+		--vector 2048 or 128
+
+Recognize Faces From Video
+-------------------------
+Input is the file of embeddings created from a specific group of identities that is known
+to be in the video. The video source can be the webcam or a local file. Faces are detected
+in each frame using ONNX, an ultra-light detection method preferable to MTCNN due to 
+its speed and relatively high accuracy. The detections are filtered based on confidence 
+levels, area of the bounding box identified, and the relative width and height of the bounding
+box to the frame's width and height. Once the face has been detected, the pixels are sent as 
+an array to the Keras model to predict embeddings. The embeddings obtained for the frame 
+(which may contain multiple faces) are passed to either an SVC instance or Logistic Regression,
+which calculate the distance between values in the vector embedding. If the distance is 
+sufficiently close, the face is recognized and labeled with the corresponding name. The 
+video file can be scrubbed (frames are skipped) and/or written (the output frames are 
+collected into a .avi file).
+
+	Keras FaceNet
+	python video.py --embeddings files/"name.npz" \
+		--predictor SVC or LR \
+		--video videos/"name.mp4" or "cam" \
+		--scrub False \
+		--write False 
+
+	Keras VGGFace
+	python video_vgg.py --embeddings files/"name.npz" \
+		--predictor SVC or LR \
+		--video videos/"name.mp4" or "cam" \
+		--vector 2048 or 128 \
+		--scrub False \
+		--write False 
