@@ -1,0 +1,17 @@
+Keras FaceNet, ONNX Detection, Logistic Regression 
+
+[INFO] elapsed time: 64.01
+[INFO] approx. FPS: 6.62
+[INFO] total frames: 424
+[INFO] likely identity in video: unknown 219
+[INFO] likely identity in video: dame 194
+[INFO] likely identity in video: aaron 3
+
+Keras VGGFace, ONNX Detection, Logistic Regression
+
+[INFO] elapsed time: 106.40
+[INFO] approx. FPS: 3.99
+[INFO] total frames: 424
+[INFO] likely identity in video: dame 214
+[INFO] likely identity in video: unknown 202
+[INFO] likely identity in video: aaron 2
