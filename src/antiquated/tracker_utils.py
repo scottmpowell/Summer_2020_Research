@@ -3,7 +3,7 @@ import cv2 as cv
 class trackee:
     # Inititializer
     def __init__(self, bbox, number, frame):
-        self.tracker = cv.TrackerCSRT_create()
+        self.tracker = cv.TrackerMOSSE_create()
         self.bbox = bbox
         self.number = number
         self.tracker.init(frame, self.bbox)
@@ -33,7 +33,7 @@ def delete_tracker(x, y, trackers):
 def begin_track(frame, trackers):
     tracker_counter = 1
     while True: 
-        bbox = cv.selectROI("Video", frame, False)
+        bbox = cv.selectROI("Tracking", frame, False)
         if bbox == (0,0,0,0):
             return tracker_counter - 1
 
