@@ -15,16 +15,19 @@ import torch
 import os
 
 # Personal Modules
-from tracker_utils import trackee, delete_tracker, begin_track
+from tracker_utils import *
 
 # Yolov5 modules
 from utils import google_utils
 from utils.datasets import *
-from utils.utils import *
+from utils.yolov5_utils import *
 import torch.backends.cudnn as cudnn
 
-face_cascade = cv.CascadeClassifier(cv.data.haarcascades + "haarcascade_fullbody.xml")
-cv.namedWindow("Video")
+# Haar cascade classification is fast, but is nowhere near as accurate as yolo or anything recent
+# If yolo cannot be used to track the ball effectively, I'm considering constructing a Haar cascade classifier for purely the ball, to use in conjunction with yolo
+
+#face_cascade = cv.CascadeClassifier(cv.data.haarcascades + "haarcascade_fullbody.xml")
+
 
 
 def check_commands():
@@ -42,7 +45,7 @@ def check_commands():
             else: 
                 is_tracking = False
         elif k == ord('w'):
-            text = args["output"] + "/img" + str(imgno) + ".png"
+            text = opt["output"] + "/img" + str(imgno) + ".png"
             cv.imwrite(text, frame)
             imgno += 1
         elif k == ord('x'):
@@ -97,17 +100,28 @@ def play_video():
 
 # MAIN
 if __name__ == "__main__":
+
     
     # construct the argument parse and parse the arguments
     # ARGUMENTS
-    ap = argparse.ArgumentParser()
-    ap.add_argument("-i", "--input", required=True,
-            help="path to input file")
-    ap.add_argument('-w', '--weights',type=str, default='weights/yolov5s.pt', 
-            help='model.pt path')
-    ap.add_argument("-o", "--output", default="images",
-	    help="path to output video")
-    args = vars(ap.parse_args())
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--weights', type=str, default='weights/yolov5s.pt', help='model.pt path')
+    parser.add_argument('-s', '--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('-o', '--output', type=str, default='inference/output', help='output folder')  # output folder
+    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
+    parser.add_argument('--conf-thres', type=float, default=0.4, help='object confidence threshold')
+    parser.add_argument('--iou-thres', type=float, default=0.5, help='IOU threshold for NMS')
+    parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
+    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
+    parser.add_argument('-v', '--view-img', action='store_true', help='display results')
+    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
+    parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
+    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
+    parser.add_argument('--augment', action='store_true', help='augmented inference')
+    opt = parser.parse_args()
+    opt.img_size = check_img_size(opt.img_size)
+    
+    cv.namedWindow("Video")
 
     # Initialize global variables. Additionally, create an empty dictionary and set is_tracking to False until an object is selected
     global frame, bbox, video, tracker, is_tracking, trackers, pause, show, is_deleting, has_ball, ball_tracker, imgno
@@ -118,7 +132,7 @@ if __name__ == "__main__":
     pause = False
 
     # If a file is specified, open the file, otherwise take from the camera
-    video = cv.VideoCapture(args["input"])
+    video = cv.VideoCapture(opt["source"])
     writer = None
     (W, H) = (None, None)
 
@@ -146,8 +160,6 @@ if __name__ == "__main__":
         # Start timer
         timer = cv.getTickCount()
 
-
-        #frame = detect_ball(args, frame, net, ln, LABELS)
         gray = cv.cvtColor(show, cv.COLOR_BGR2GRAY)
         
         detected_faces = face_cascade.detectMultiScale(gray, 1.3, 4)
@@ -163,7 +175,7 @@ if __name__ == "__main__":
 
 
         # Display tracker type on frame
-        cv.putText(show, "GOTURN Tracker", (100,20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
+        cv.putText(show, "Basketball Tracker", (100,20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
 
         # Display FPS on show
         cv.putText(show, "FPS : " + str(int(fps)), (100,50), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
@@ -176,17 +188,8 @@ if __name__ == "__main__":
 # release the file pointers
 video.release()
 
-def load_yolo(save_img=False):
-    # opt is supposed to be the arguments buffer
-    out, source, weights, view_img, save_txt, imgsz = \
-        opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
-
-    # webcam is bool
-    webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
-
-def detect(save_img=False):
-
-    # opt is supposed to be the arguments buffer
+def load_yolo(opt, save_img=False):
+    # Set arguments
     out, source, weights, view_img, save_txt, imgsz = \
         opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
 
@@ -195,6 +198,55 @@ def detect(save_img=False):
 
     # Initialize
     device = torch_utils.select_device(opt.device)
+    if os.path.exists(out):
+        shutil.rmtree(out)  # delete output folder
+    os.makedirs(out)  # make new output folder
+    half = device.type != 'cpu'  # half precision only supported on CUDA
+
+    # Load model
+    #google_utils.attempt_download(weights)
+    model = torch.load(weights, map_location=device)['model'].float()  # load to FP32
+    # torch.save(torch.load(weights, map_location=device), weights)  # update model if SourceChangeWarning
+    # model.fuse()
+    model.to(device).eval()
+    if half:
+        model.half()  # to FP16
+
+    # Second-stage classifier
+    classify = False
+    if classify:
+        modelc = torch_utils.load_classifier(name='resnet101', n=2)  # initialize
+        modelc.load_state_dict(torch.load('weights/resnet101.pt', map_location=device)['model'])  # load weights
+        modelc.to(device).eval()
+
+    # Set Dataloader
+    vid_path, vid_writer = None, None
+
+    # If using a webcam, view_img will open a feed and not save, we should have this on
+    if webcam:
+        view_img = True
+        cudnn.benchmark = True  # set True to speed up constant image size inference
+        dataset = LoadStreams(source, img_size=imgsz)
+    else:
+        save_img = True
+        dataset = LoadImages(source, img_size=imgsz)
+
+    # Get names and colors
+    names = model.module.names if hasattr(model, 'module') else model.names
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
+
+def detect(opt, save_img=False):
+
+    # Set arguments
+    out, source, weights, view_img, save_txt, imgsz = \
+        opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
+
+    # webcam is bool
+    webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
+
+    # Initialize
+    device = torch_utils.select_device(opt.device)
+    print(device)
     if os.path.exists(out):
         shutil.rmtree(out)  # delete output folder
     os.makedirs(out)  # make new output folder
@@ -320,24 +372,6 @@ def detect(save_img=False):
 
 """
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='weights/yolov5s.pt', help='model.pt path')
-    parser.add_argument('--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='inference/output', help='output folder')  # output folder
-    parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.4, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.5, help='IOU threshold for NMS')
-    parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
-    parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
-    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    parser.add_argument('--augment', action='store_true', help='augmented inference')
-    opt = parser.parse_args()
-    opt.img_size = check_img_size(opt.img_size)
-    print(opt)
-
     with torch.no_grad():
         detect()
 
