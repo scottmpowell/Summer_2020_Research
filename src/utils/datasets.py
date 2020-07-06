@@ -65,8 +65,11 @@ class LoadImages:  # for inference
     def __init__(self, path, img_size=640):
         path = str(Path(path))  # os-agnostic
         files = []
+
+        # Files is the path to source
         if os.path.isdir(path):
             files = sorted(glob.glob(os.path.join(path, '*.*')))
+            
         elif os.path.isfile(path):
             files = [path]
 
@@ -77,7 +80,7 @@ class LoadImages:  # for inference
         self.img_size = img_size
         self.files = images + videos
         self.nF = nI + nV  # number of files
-        self.video_flag = [False] * nI + [True] * nV
+        self.video_flag = [False] * nI + [True] * nV # Roundabout way of saying "is video"
         self.mode = 'images'
         if any(videos):
             self.new_video(videos[0])  # new video
@@ -128,6 +131,9 @@ class LoadImages:  # for inference
 
         # cv2.imwrite(path + '.letterbox.jpg', 255 * img.transpose((1, 2, 0))[:, :, ::-1])  # save letterbox image
         return path, img, img0, self.cap
+
+    def next(self):
+        return
 
     def new_video(self, path):
         self.frame = 0
