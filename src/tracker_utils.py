@@ -5,6 +5,7 @@ class trackee:
     def __init__(self, bbox, number, frame):
         self.tracker = cv.TrackerCSRT_create()
         self.bbox = bbox
+        print(bbox)
         self.number = number
         self.tracker.init(frame, self.bbox)
 
@@ -30,14 +31,14 @@ def delete_tracker(x, y, trackers):
 
 
 # Begin tracking object. Video will pause on current frame and allow selection of a ROI to be tracked
-def begin_track(frame, trackers):
+def begin_track(empty_frame, frame, trackers):
     tracker_counter = 1
     while True: 
         bbox = cv.selectROI("Video", frame, False)
         if bbox == (0,0,0,0):
             return tracker_counter - 1
 
-        trackers.update({tracker_counter:trackee(bbox, tracker_counter, frame)})
+        trackers.update({tracker_counter:trackee(bbox, tracker_counter, empty_frame)})
         tracker_counter += 1
 
     return tracker_counter
