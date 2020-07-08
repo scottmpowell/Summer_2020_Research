@@ -18,15 +18,17 @@ import os
 from tracker_utils import *
 
 # Yolov5 modules
-from utils import google_utils
+from utils import google_utils, torch_utils
 from utils.datasets import *
-from utils.yolov5_utils import *
 import torch.backends.cudnn as cudnn
+from utils.utils import *
 
 # Haar cascade classification is fast, but is nowhere near as accurate as yolo or anything recent
 # If yolo cannot be used to track the ball effectively, I'm considering constructing a Haar cascade classifier for purely the ball, to use in conjunction with yolo
 
 #face_cascade = cv.CascadeClassifier(cv.data.haarcascades + "haarcascade_fullbody.xml")
+
+#net = cv.dnn.readNet("goturn.caffemodel", "goturn.prototxt")
 
 def pause_video():
     global pause 
@@ -204,7 +206,7 @@ def detect(opt, save_img=False):
 
             save_path = str(Path(out) / Path(p).name)
             txt_path = str(Path(out) / Path(p).stem) + ('_%g' % dataset.frame if dataset.mode == 'video' else '')
-            s += '%gx%g ' % img.shape[2:]  # print string
+            #s += '%gx%g ' % img.shape[2:]  # print string
             gn = torch.tensor(im0.shape)[[1, 0, 1, 0]]  # normalization gain whwh
             if det is not None and len(det):
                 # Rescale boxes from img_size to im0 size
@@ -224,17 +226,22 @@ def detect(opt, save_img=False):
 
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
-                        if "sports ball" in label:
-                            c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-                            ball_box = (int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1]))
-                            ball_tracker = cv2.TrackerCSRT_create()
-                            ball_tracker.init(empty_frame, ball_box)
-                            has_ball = True
-
-
+                        if opt.all:
                             plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         else:
-                            continue
+                            if "sports ball" in label:
+                                
+                                print("detected")
+                                """
+                                c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+                                ball_box = (int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1]))
+                                ball_tracker.init(empty_frame, ball_box)
+                                has_ball = True
+                                """
+
+                            elif "person" in label:
+                                if opt.people:
+                                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
 
             # Print time (inference + NMS)
             #print('%sDone. (%.3fs)' % (s, t2 - t1))
@@ -281,12 +288,18 @@ if __name__ == "__main__":
     # construct the argument parse and parse the arguments
     # ARGUMENTS
     parser = argparse.ArgumentParser()
-    parser.add_argument('--weights', type=str, default='weights/yolov5s.pt', help='model.pt path')
+
+
+    # Frequently used
+    parser.add_argument('-p', '--people', action='store_true', help='show detected people')
+    parser.add_argument('-a', '--all', action='store_true', help='show everything')
+
     parser.add_argument('-s', '--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
     parser.add_argument('-o', '--output', type=str, default='inference/output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.4, help='object confidence threshold')
+    parser.add_argument('-c', '--conf-thres', type=float, default=0.4, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='IOU threshold for NMS')
+    parser.add_argument('--weights', type=str, default='../weights/yolov5s.pt', help='model.pt path')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('-v', '--view-img', action='store_true', help='display results')
@@ -295,7 +308,7 @@ if __name__ == "__main__":
     parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
     parser.add_argument('--augment', action='store_true', help='augmented inference')
     opt = parser.parse_args()
-    opt.img_size = check_img_size(opt.img_size)
+    #opt.img_size = check_img_size(opt.img_size)
 
     
     cv.namedWindow("Video")
@@ -307,6 +320,8 @@ if __name__ == "__main__":
     is_deleting = False
     trackers = dict()
     pause = False
+    has_ball = False
+    ball_tracker = cv2.TrackerKCF_create()
 
     # If a file is specified, open the file, otherwise take from the camera
     video = cv.VideoCapture(opt.source)

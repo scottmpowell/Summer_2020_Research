@@ -113,14 +113,14 @@ class LoadImages:  # for inference
                     ret_val, img0 = self.cap.read()
 
             self.frame += 1
-            print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path), end='')
+            #print('video %g/%g (%g/%g) %s: ' % (self.count + 1, self.nF, self.frame, self.nframes, path), end='')
 
         else:
             # Read image
             self.count += 1
             img0 = cv2.imread(path)  # BGR
             assert img0 is not None, 'Image Not Found ' + path
-            print('image %g/%g %s: ' % (self.count, self.nF, path), end='')
+            #print('image %g/%g %s: ' % (self.count, self.nF, path), end='')
 
         # Padded resize
         img = letterbox(img0, new_shape=self.img_size)[0]
@@ -194,7 +194,7 @@ class LoadWebcam:  # for inference
         # Print
         assert ret_val, 'Camera Error %s' % self.pipe
         img_path = 'webcam.jpg'
-        print('webcam %g: ' % self.count, end='')
+        #print('webcam %g: ' % self.count, end='')
 
         # Padded resize
         img = letterbox(img0, new_shape=self.img_size)[0]
@@ -225,7 +225,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
         self.sources = sources
         for i, s in enumerate(sources):
             # Start the thread to read frames from the video stream
-            print('%g/%g: %s... ' % (i + 1, n, s), end='')
+            #print('%g/%g: %s... ' % (i + 1, n, s), end='')
             cap = cv2.VideoCapture(0 if s == '0' else s)
             assert cap.isOpened(), 'Failed to open %s' % s
             w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -233,7 +233,7 @@ class LoadStreams:  # multiple IP or RTSP cameras
             fps = cap.get(cv2.CAP_PROP_FPS) % 100
             _, self.imgs[i] = cap.read()  # guarantee first frame
             thread = Thread(target=self.update, args=([i, cap]), daemon=True)
-            print(' success (%gx%g at %.2f FPS).' % (w, h, fps))
+            #print(' success (%gx%g at %.2f FPS).' % (w, h, fps))
             thread.start()
         print('')  # newline
 
@@ -241,7 +241,8 @@ class LoadStreams:  # multiple IP or RTSP cameras
         s = np.stack([letterbox(x, new_shape=self.img_size)[0].shape for x in self.imgs], 0)  # inference shapes
         self.rect = np.unique(s, axis=0).shape[0] == 1  # rect inference if all shapes equal
         if not self.rect:
-            print('WARNING: Different stream shapes detected. For optimal performance supply similarly-shaped streams.')
+            print('')
+            #print('WARNING: Different stream shapes detected. For optimal performance supply similarly-shaped streams.')
 
     def update(self, index, cap):
         # Read next stream frame in a daemon thread
