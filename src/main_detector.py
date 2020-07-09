@@ -229,15 +229,13 @@ def detect(opt, save_img=False):
                         if opt.all:
                             plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                         else:
-                            if "sports ball" in label:
-                                
-                                print("detected")
-                                """
+                            if "ball" in label:
                                 c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
                                 ball_box = (int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1]))
+                                plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
                                 ball_tracker.init(empty_frame, ball_box)
                                 has_ball = True
-                                """
+                                
 
                             elif "person" in label:
                                 if opt.people:

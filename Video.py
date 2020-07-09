@@ -13,9 +13,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     # Frequently used
-    parser.add_argument('-s', '--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('-o', '--output', type=str, default='inference/output', help='output folder')  # output folder
-    parser.add_argument('-n', '--number', type=int, default=1, help='what number to start images at')
+    parser.add_argument('-s', '--source', type=str, default='/home/scott/MiddballHam.mp4', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('-o', '--output', type=str, default='/home/scott/summer2020/data/', help='output folder')  # output folder
+    parser.add_argument('-n', '--number', type=int, required=True, help='what number to start images at')
 
     opt = parser.parse_args()
 
