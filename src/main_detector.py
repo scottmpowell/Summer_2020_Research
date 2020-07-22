@@ -38,7 +38,7 @@ def pause_video():
         check_commands(k)
 
 def check_commands(k):
-        global empty_frame, pause, is_deleting, frame, trackers, is_tracking, imgno, im0
+        global empty_frame, pause, is_deleting, frame, trackers, is_tracking, imgno, im0 
         cv.setMouseCallback("Video", handler)
         if k == ord('q'):
             sys.exit()
@@ -62,13 +62,17 @@ def check_commands(k):
                     redraw()
 
                 is_deleting = not is_deleting
+        elif k == ord('l'):
+            pass
+            # List bounding box of ball
+
 
 def redraw():
     """redraw takes no arguments. It updates the frame and tracked objects, and then shows the image."""
-    global is_tracking, trackers, has_ball, ball_tracker, ball_bbox, empty_frame
+    global is_tracking, trackers, has_ball, ball_tracker, ball_bbox, empty_frame, has_ball_tracker
     if is_tracking:
         for key in trackers:
-            track_ret, trackers[key].bbox = trackers[key].tracker.update(frame)
+            track_ret, trackers[key].bbox = trackers[key].tracker.update(empty_frame)
             # Draw bounding box
             if track_ret:
                 # Tracking success
@@ -79,20 +83,21 @@ def redraw():
                 # Tracking failure
                 cv.putText(frame, "Tracking failure detected", (100,80), cv.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
     if has_ball:
-            ball_ret, ball_bbox = ball_tracker.update(empty_frame)
-            # Draw bounding box
-            if ball_ret:
-                # Tracking success
-                p1 = (int(ball_bbox[0]), int(ball_bbox[1]))
-                p2 = (int(ball_bbox[0] + ball_bbox[2]), int(ball_bbox[1] + ball_bbox[3]))
-                cv.rectangle(frame, p1, p2, (255,0,0), 2, 1)
-            else :
-                # Tracking failure
-                cv.putText(frame, "Ball tracking failure", (100,80), cv.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
+        ball.draw_ctr
+        ball_ret, ball_bbox = ball_tracker.update(empty_frame)
+        # Draw bounding box
+        if ball_ret:
+            # Tracking success
+            p1 = (int(ball_bbox[0]), int(ball_bbox[1]))
+            p2 = (int(ball_bbox[0] + ball_bbox[2]), int(ball_bbox[1] + ball_bbox[3]))
+            cv.rectangle(frame, p1, p2, (255,0,0), 2, 1)
+            ball.set_ctr(int(ball_bbox[0] + ball_bbox[2] // 2), int(ball_bbox[1] + ball_bbox[3] // 2))
 
-    cv.imshow("Video", frame)
-    return 0
+        else :
+            # Tracking failure
+            has_ball_tracker = False
 
+    return frame
 
 def handler(event, x, y, flags, param):
     """Handle mouse events, and draw a red 'X' on mouse if paused and the delete key was pressed."""
@@ -109,19 +114,19 @@ def handler(event, x, y, flags, param):
             cv.imshow("Video", cursor_frame)
     else:
         return
-
+        
+     
 # Notes on global variables
 # empty_frame: raw footage of video
 # frame: final image to show after both detection and tracking
 # im0: original "to show frame" from yolov5. shows detection but not tracking
 
-def detect(opt, save_img=False):
+def detect(opt, ball, save_img=False):
     global empty_frame, frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno, im0
 
     # Set arguments
     out, source, weights, view_img, save_txt, imgsz = \
         opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
-
     # webcam is bool
     webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
@@ -170,12 +175,10 @@ def detect(opt, save_img=False):
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img) if device.type != 'cpu' else None  # run once
 
-    # This is the loop I need to implement
-    # The iteration is over the dataset class, which will return the everything
-    # Make sure my while loop has the four items in the iterating
-    # can I just add my current code through here? and have it check for commands at the end?
     # path is the filename of video/image, img is a resized np array for frame
     # img0s is the raw frame, vid_cap is the VideoCapture object
+    right = 0
+    left = 0
     for path, img, im0s, vid_cap in dataset:
         #print("path ", path, "img", img, "im0s", im0s, "cap", vid_cap)
         img = torch.from_numpy(img).to(device)
@@ -184,6 +187,9 @@ def detect(opt, save_img=False):
         if img.ndimension() == 3:
             img = img.unsqueeze(0)
         empty_frame = im0s.copy()
+
+        # Check tracker to see if a center can be determined
+        ball_tracked = ball.check_tracker(empty_frame)
 
         # Inference
         t1 = torch_utils.time_synchronized()
@@ -216,46 +222,114 @@ def detect(opt, save_img=False):
                 for c in det[:, -1].unique():
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
+                
+                # Find ball first
+                found = 0
+                for *xyxy, conf, cls in det:
+                    # If detected object is ball
+                    if names[int(cls)] == "ball":
+                        # There is no tracker on the ball, and no ball has been found on this frame
+                        if ball.has_ball:
+                            # A ball is already being tracked.
+                            # For now, replace it
+                            if ball.conf > conf:
+                                # Only update if the conf is greater than previous
+                                found += 1
+                                continue
+
+                            # Set tracker on this ball, update ball properties
+                            # update the ball center
+                            ball.update(xyxy, conf, empty_frame)
+                            #plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
+                            found += 1
+
+                        else:
+                            # If a ball has been detected
+                            if found > 0:
+                                if ball.conf > conf:
+                                    # Only update if the conf is greater than previous
+                                    found += 1
+                                    continue
+                                else:
+                                    # update the ball center, more likely to be ball
+                                    ball.update(xyxy, conf, empty_frame)
+                            #        plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
+                                    found += 1
+
+                            else:
+                                ball.update(xyxy, conf, empty_frame)
+                            #    plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
+                                found += 1
+ 
+                ball.frames.append([empty_frame,ball.bbox])
+                if len(ball.frames) > 30:
+                    ball.frames.pop(0)
+
+                # If no ball detected, check to see if tracker has anything
+                if found == 0:
+                    if ball.has_tracker == False:
+                        # Ball is lost
+                        ball.has_ball = False
+
+                #if found > 1:
+                    #print("detected", found, "balls")
+
 
                 # Write results
                 for *xyxy, conf, cls in det:
+                    """
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
+                    """
 
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
-                        if opt.all:
-                            plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                        if "ball" in label:
+                            if found == 0:
+                                print("an error occured")
+                            pass
                         else:
-                            if "ball" in label:
-                                c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-                                ball_box = (int(xyxy[0]), int(xyxy[1]), int(xyxy[2] - xyxy[0]), int(xyxy[3] - xyxy[1]))
-                                plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
-                                ball_tracker.init(empty_frame, ball_box)
-                                has_ball = True
+                            if "net" in label:
                                 
+                                c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+                                if ball.contained_in(c1,c2):
+                                    print("basket")
+                                    if ball.ctr[1] > frame.shape[1]//2:
+                                        print("score right")
+                                    else:
+                                        print("score left")
+                            elif "backboard" in label:
+                                c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+                                if ball.contained_in(c1,c2):
+                                    pass
+                                    #print("shot")
 
-                            elif "person" in label:
-                                if opt.people:
-                                    plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=3)
+                            if opt.all or ("person" in label and opt.people):
+                                c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+                                if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
+                                    plot_one_box(xyxy, im0, label=label, color=[0,0,255], line_thickness=3)
+                                else:
+                                    plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
 
             # Print time (inference + NMS)
-            #print('%sDone. (%.3fs)' % (s, t2 - t1))
-
-            frame = im0.copy()
+            frame = ball.draw_ctr(im0)
             # Stream results
             if view_img:
                 #cv2.imshow(p, im0)
-                redraw()
+                frame = redraw()
+                
+               # cv.putText(frame, )
                 cv2.imshow("Video", frame)
+                cv2.imshow("backup",ball.frames[0][0])
                 k = cv2.waitKey(1)
                 if k == ord('q'):  # q to quit
                     raise StopIteration
                 else:
                     check_commands(k)
 
+            """
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'images':
@@ -276,6 +350,7 @@ def detect(opt, save_img=False):
         #print('Results saved to %s' % os.getcwd() + os.sep + out)
         if platform == 'darwin':  # MacOS
             os.system('open ' + save_path)
+            """
 
     #print('Done. (%.3fs)' % (time.time() - t0))
 
@@ -292,12 +367,12 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--people', action='store_true', help='show detected people')
     parser.add_argument('-a', '--all', action='store_true', help='show everything')
 
-    parser.add_argument('-s', '--source', type=str, default='inference/images', help='source')  # file/folder, 0 for webcam
+    parser.add_argument('-s', '--source', type=str, default='/home/scott/MiddballHam.mp4', help='source')  # file/folder, 0 for webcam
     parser.add_argument('-o', '--output', type=str, default='inference/output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('-c', '--conf-thres', type=float, default=0.4, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='IOU threshold for NMS')
-    parser.add_argument('--weights', type=str, default='../weights/yolov5s.pt', help='model.pt path')
+    parser.add_argument('--weights', type=str, default='weights/best.pt', help='model.pt path')
     parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('-v', '--view-img', action='store_true', help='display results')
@@ -312,7 +387,7 @@ if __name__ == "__main__":
     cv.namedWindow("Video")
 
     # Initialize global variables. Additionally, create an empty dictionary and set is_tracking to False until an object is selected
-    global frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno
+    global frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno, has_ball_tracker
     imgno = 1
     is_tracking = False
     is_deleting = False
@@ -320,29 +395,22 @@ if __name__ == "__main__":
     pause = False
     has_ball = False
     ball_tracker = cv2.TrackerKCF_create()
+    has_ball_tracker = False
+    ball = Ball()
 
     # If a file is specified, open the file, otherwise take from the camera
     video = cv.VideoCapture(opt.source)
 
     # Exit if video not opened
     if not video.isOpened():
-        #print("Could not open video")
+        print("Could not open video")
         sys.exit()
 
     cv.setMouseCallback("Video", handler)
 
     with torch.no_grad():
-        detect(opt)
-
-    while True:
-        if pause == True:
-            k = cv.waitKey(5) & 0xff
-            check_commands(k)
-            continue
-        # Read a new frame
-        cap_ret, frame = video.read()
-        if not cap_ret:
-            break
+        detect(opt, ball)
+    """
         # Start timer
         timer = cv.getTickCount()
         # Calculate Frames per second (FPS)
@@ -355,6 +423,7 @@ if __name__ == "__main__":
         redraw()
         k = cv.waitKey(5) & 0xff
         check_commands(k)
+    """
 
 
 # release the file pointers
