@@ -18,7 +18,6 @@ import os
 from tracker_utils import *
 
 # Yolov5 modules
-from utils import google_utils, torch_utils
 from utils.datasets import *
 import torch.backends.cudnn as cudnn
 from utils.utils import *
