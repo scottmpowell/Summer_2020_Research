@@ -15,7 +15,7 @@ import torch
 import os
 
 # Personal Modules
-from tracker_utils import *
+from utils.tracker_utils import *
 
 # Yolov5 modules
 from utils.datasets import *
