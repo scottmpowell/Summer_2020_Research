@@ -123,6 +123,14 @@ def handler(event, x, y, flags, param):
 def detect(opt, ball, save_img=False):
     global empty_frame, frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno, im0
 
+    future_frames = []
+    past_frames = []
+    present_frame = None
+
+
+    # Index of frame that will next contain the ball
+    next_find = None
+
     # Set arguments
     out, source, weights, view_img, save_txt, imgsz = \
         opt.output, opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size
@@ -138,7 +146,6 @@ def detect(opt, ball, save_img=False):
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
-    #google_utils.attempt_download(weights)
     model = torch.load(weights, map_location=device)['model'].float()  # load to FP32
     # torch.save(torch.load(weights, map_location=device), weights)  # update model if SourceChangeWarning
     # model.fuse()
@@ -176,8 +183,11 @@ def detect(opt, ball, save_img=False):
 
     # path is the filename of video/image, img is a resized np array for frame
     # img0s is the raw frame, vid_cap is the VideoCapture object
+
+    # Scoreboard
     right = 0
     left = 0
+
     for path, img, im0s, vid_cap in dataset:
         #print("path ", path, "img", img, "im0s", im0s, "cap", vid_cap)
         img = torch.from_numpy(img).to(device)
@@ -188,7 +198,7 @@ def detect(opt, ball, save_img=False):
         empty_frame = im0s.copy()
 
         # Check tracker to see if a center can be determined
-        ball_tracked = ball.check_tracker(empty_frame)
+        ball.check_tracker(empty_frame)
 
         # Inference
         t1 = torch_utils.time_synchronized()
@@ -259,19 +269,11 @@ def detect(opt, ball, save_img=False):
                                 ball.update(xyxy, conf, empty_frame)
                             #    plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
                                 found += 1
- 
-                ball.frames.append([empty_frame,ball.bbox])
-                if len(ball.frames) > 30:
-                    ball.frames.pop(0)
 
-                # If no ball detected, check to see if tracker has anything
-                if found == 0:
-                    if ball.has_tracker == False:
-                        # Ball is lost
-                        ball.has_ball = False
 
                 #if found > 1:
                     #print("detected", found, "balls")
+
 
 
                 # Write results
@@ -312,16 +314,43 @@ def detect(opt, ball, save_img=False):
                                 else:
                                     plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
 
+ 
+            # If no ball detected, check to see if tracker has anything
+            if found == 0:
+                if ball.has_tracker == False:
+                    # Ball is lost
+                    ball.has_ball = False
+
             # Print time (inference + NMS)
             frame = ball.draw_ctr(im0)
+            future_frames.append([empty_frame, frame, found, ball.bbox])
+            if next_find is None or next_find < 1:
+                next_find = find_next(future_frames)
+                #print("Next ball is ", next_find,"frames away at position: ", future_frames[next_find][3])
+
+            if len(future_frames) >= 100:
+                past_frames.append(present_frame)
+                if len(past_frames) >= 10:
+                    past_frames.pop(0)
+                present_frame = future_frames.pop(0)
+
+
             # Stream results
             if view_img:
                 #cv2.imshow(p, im0)
                 frame = redraw()
                 
-               # cv.putText(frame, )
-                cv2.imshow("Video", frame)
-                cv2.imshow("backup",ball.frames[0][0])
+                # cv.putText(frame, )
+                #if len(future_frames) >= 100:
+                    #cv2.imshow("Video", frame) #ball.frames[25][0])
+
+                if present_frame:
+                    cv2.imshow("Video", present_frame[1])
+                    if past_frames[0]:
+                        if past_frames[0][2]:
+                            pass
+                            #print("ball seen at", past_frames[0][3])
+
                 k = cv2.waitKey(1)
                 if k == ord('q'):  # q to quit
                     raise StopIteration
@@ -418,13 +447,7 @@ if __name__ == "__main__":
         cv.putText(frame, "Basketball Tracker", (100,20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
         # Display FPS on frame
         cv.putText(frame, "FPS : " + str(int(fps)), (100,50), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-        # Display result
-        redraw()
-        k = cv.waitKey(5) & 0xff
-        check_commands(k)
     """
 
-
-# release the file pointers
-video.release()
-
+    # release the file pointers
+    video.release()

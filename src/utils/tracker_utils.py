@@ -21,13 +21,11 @@ class Ball:
 
     def __init__(self, bbox=None, ctr=None, has_tracker=False, has_ball=False):
         self.tracker = cv.TrackerKCF_create()
-        self.bbox = bbox
-        self.ctr = ctr
-        self.has_tracker = has_tracker
-        self.has_ball = has_ball
-        self.conf = None
-        self.frames = []
-        self.prev_box = None
+        self.bbox = bbox # bbox is used solely for trackers. It is a fourple saved as (p1.x, p1.y, w, h)
+        self.ctr = ctr # ctr is the centerpoint of the ball. Used for distance calculations
+        self.has_tracker = has_tracker # Set to False if the ball tracker fails to find the ball from the tracker
+        self.has_ball = has_ball # Set to False if has_tracker is false and no ball is detected that frame
+        self.conf = None # Confidence of the ball. 
 
 
     def contained_in(self, p1, p2):
@@ -51,13 +49,13 @@ class Ball:
         Sets self.ctr to be the average of the two points
         """
         self.ctr = (int((p1[0] + p2[0]) // 2), int((p1[1] + p2[1]) // 2))
-        self.distance((100,200))
 
     def box2ctr(self):
         """
-        Set center to be the center point of the rectangle
+        Set center to be the center point of the rectangle saved in bbox
         """
         self.ctr = (self.bbox[0] + (self.bbox[2] // 2), self.bbox[1] + (self.bbox[3] //2))
+
 
     def draw_ctr(self, frame):
         """
@@ -66,9 +64,12 @@ class Ball:
         if not self.ctr:
             return frame
         if self.has_ball:
-            cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (int(self.bbox[0]) + int(self.bbox[2]), int(self.bbox[1]) + int(self.bbox[3])), (0,255,0), 4, 1)
+            if self.bbox == (0,0,0,0):
+                return frame
+            cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (int(self.bbox[0]) + int(self.bbox[2]), int(self.bbox[1]) + int(self.bbox[3])), (255,0,255), 4, 1)
             #cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (100,100), (0,255,0), 2, 1)
             return frame
+            
             #cv.rectangle(frame, self.ctr, self.ctr, (0,255,0), 2, 1)
             #cv.rectangle(frame, (self.ctr[0] - 1, self.ctr[1] - 1), (self.ctr[0] + 1, self.ctr[1] + 1), (0,255,0), 2, 1)
         else:
@@ -76,20 +77,22 @@ class Ball:
 
     def check_tracker(self, empty_frame):
         """
-        Check ball tracker location, and set ball parameters accordingly
+        Check ball tracker location, and set ball parameters accordingly.
         """
         if not self.has_tracker:
-            return False
+            return
         else:
+            # There is a tracker, see if it can track
+            # If it can't, self.bbox is set to 0
             ret, self.bbox = self.tracker.update(empty_frame)
+            print(ret, self.bbox)
             if ret:
+                print(self.bbox)
                 # Tracking success
                 self.box2ctr()
-                return True
             else :
                 # Tracking failure
                 self.has_tracker = False
-                return False
 
     def distance(self, p1):
         return np.sqrt(abs(self.ctr[0] - p1[0])**2 + abs(self.ctr[1] - p1[1])**2)
@@ -100,6 +103,7 @@ class Ball:
         self.set_box(c1, c2)
         self.prev_box = self.ctr
         self.set_ctr(c1, c2)
+        self.tracker = cv.TrackerKCF_create()
         self.tracker.init(empty_frame, self.bbox)
         self.has_tracker = True
         self.has_ball = True
@@ -130,3 +134,8 @@ def begin_track(empty_frame, frame, trackers):
         tracker_counter += 1
 
     return tracker_counter
+
+def find_next(frames):
+    for i in range(len(frames)):
+        if frames[i][2] > 0:
+            return i
