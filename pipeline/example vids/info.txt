@@ -1,17 +1,29 @@
-Keras FaceNet, ONNX Detection, Logistic Regression 
+Keras FaceNet (video_v2.py)
 
-[INFO] elapsed time: 64.01
-[INFO] approx. FPS: 6.62
-[INFO] total frames: 424
-[INFO] likely identity in video: unknown 219
-[INFO] likely identity in video: dame 194
-[INFO] likely identity in video: aaron 3
+[INFO] elapsed time: 57.76
+[INFO] approx. FPS: 7.36
+[INFO] total frames: 425
+[INFO] likely identity in video: unknown 198
+[INFO] likely identity in video: dame 187
+[INFO] likely identity in video: cj 34
+[INFO] likely identity in video: aaron 8
 
-Keras VGGFace, ONNX Detection, Logistic Regression
 
-[INFO] elapsed time: 106.40
-[INFO] approx. FPS: 3.99
-[INFO] total frames: 424
-[INFO] likely identity in video: dame 214
-[INFO] likely identity in video: unknown 202
-[INFO] likely identity in video: aaron 2
+Keras FaceNet (video_v2_ultra.py)
+
+[INFO] elapsed time: 62.90
+[INFO] approx. FPS: 7.50
+[INFO] total frames: 472
+[INFO] likely identity in video: Davis 440
+[INFO] likely identity in video: Knox 311
+[INFO] likely identity in video: Kornaker 306
+[INFO] likely identity in video: Palli 158
+[INFO] likely identity in video: unknown 148
+[INFO] likely identity in video: Sullivan 147
+[INFO] likely identity in video: You Mak 141
+[INFO] likely identity in video: McDonald 108
+[INFO] likely identity in video: Waldman 62
+[INFO] likely identity in video: Miller 47
+[INFO] likely identity in video: Baharozian 40
+[INFO] likely identity in video: Young 1
+[INFO] likely identity in video: Kuntz 1

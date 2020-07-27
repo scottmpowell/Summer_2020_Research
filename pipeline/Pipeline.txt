@@ -5,7 +5,8 @@ Bing Image Search
 Script used for dataset creation. Input is a name, and it returns images gathered
 using Bing's Search API, which is part of Microsoft Cognitive Services. The key
 is only available for 7 days, so to obtain more images, a new key is required. The
-service is also available in a paid form.
+service is also available in a paid form. Number should be a multiple of 25, as
+calls are made in groups of 25 to the service.
 *Dependencies: NONE
 
 	python bing_search.py --query "first last" \
@@ -31,7 +32,7 @@ Create Image Data
 Input is the dataset of cropped images with the faces aligned. It passes the images through
 the MTCNN detector and identifies the bounding box and facial landmarks again. However, it now
 recrops the image specifically to the bounding box and saves the data in a compressed numpy file.
-The size of the compressed image is either (160, 160) or (224, 224), depending on the recognition
+The size of the compressed image is either (160,py 160) or (224, 224), depending on the recognition
 model being used (160 for Keras FaceNet, 224 for Keras VGGFace).
 	
 	python create_data.py --train cropped/"name" \
@@ -48,12 +49,12 @@ to recognize identities.
 	
 	Keras FaceNet
 	Creates 128d embeddings.
-	python embeddings.py --data files/"name.npz" \
+	python embeddings.py --data files/"dataname.npz" \
 		--output files/"name"
 
 	Keras VGGFace
 	Additional option of creating 2048d embeddings or 128d embeddings.
-	python embeddings_vgg.py --data files/"name.npz" \
+	python embeddings_vgg.py --data files/"dataname.npz" \
 		--output files/"name" \
 		--vector 2048 or 128
 
@@ -72,17 +73,42 @@ sufficiently close, the face is recognized and labeled with the corresponding na
 video file can be scrubbed (frames are skipped) and/or written (the output frames are 
 collected into a .avi file).
 
+Video v2 produces almost a 2x speedup over the original video scripts, because it stores the 
+current frame and compares the next frame to the current frame. If the faces detected between
+the two frames do not move significantly, the face is relabeled with the same identity and 
+the recognition step is skipped. This is what produces the speedup, because the upper bound
+for the processing of the video changes from the recognition model to the detection model.
+
 	Keras FaceNet
-	python video.py --embeddings files/"name.npz" \
-		--predictor SVC or LR \
+	python video_v2.py --embeddings files/"embeddingsname.npz" \
 		--video videos/"name.mp4" or "cam" \
-		--scrub False \
-		--write False 
+		--predictor SVC or LR (optional, default is LR) \
+		--scrub False (optional) \
+		--write False (optional)
 
 	Keras VGGFace
-	python video_vgg.py --embeddings files/"name.npz" \
-		--predictor SVC or LR \
-		--video videos/"name.mp4" or "cam" \
+	python video_vgg_v2.py --embeddings files/"embeddingsname.npz" \
 		--vector 2048 or 128 \
-		--scrub False \
-		--write False 
+		--video videos/"name.mp4" or "cam" \
+		--predictor SVC or LR (optional, default is LR) \
+		--scrub False (optional) \
+		--write False (optional)
+
+Recognize Faces from Video (Basketball)
+-------------------------
+Format is almost identical to Video v2, except this version uses a different detection
+model. The ONNX model is fast, but it does not perform well with small faces. The
+ultra light generic face detection model used here was built for mobile devices, which
+makes it perfect for detecting small faces at high speeds. Interestingly, it performs worse
+as the faces get larger, as it has a more difficult time reducing the bounding boxes to 
+specific areas. With this implementation, face recognition becomes semi-useful, correctly
+identifying the faces in around 60% of frames. The embeddings for this model come from actual
+footage from the Middlebury games, to allow for maximum accuracy. The VGG Keras model also 
+no longer works with this format.
+
+	Keras FaceNet
+	python video_v2_ultra.py --embeddings files/"embeddingsname.npz" \
+		--video videos/"name.mp4" or "cam" \
+		--predictor SVC or LR (optional, default is LR) \
+		--scrub False (optional)
+		--write False (optional)
