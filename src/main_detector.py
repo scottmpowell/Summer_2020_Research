@@ -1,6 +1,5 @@
 """
-Basketball and Player Tracker
-Authors: Scott Powell, Christian Newton
+Basketball and Player Tracker Authors: Scott Powell, Christian Newton
 """
 # import packages
 from imutils.video import VideoStream
@@ -230,46 +229,35 @@ def detect(opt, ball, save_img=False):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
                 
+                # Keep track of ball detections
+                found = 0
+                # Information of most likely ball in frame
+                ball_detect_info = None
 
                 # Find ball first
-                found = 0
-                ball_detect_info = None
                 for *xyxy, conf, cls in det:
                     # If detected object is ball
                     if names[int(cls)] == "ball":
+                        found += 1
                         # There is no tracker on the ball, and no ball has been found on this frame
-                        if ball.has_ball:
+                        if ball_detect_info:
                             # A ball is already being tracked.
                             # For now, replace it
-                            if ball.conf > conf:
+                            if ball_detect_info[1] > conf:
                                 # Only update if the conf is greater than previous
-                                found += 1
                                 continue
 
                             # Set tracker on this ball, update ball properties
                             # update the ball center
-                            ball.update(xyxy, conf, empty_frame)
+                            ball_detect_info = [xyxy, conf, cls]
+                            #ball.update(xyxy, conf, empty_frame)
                             #plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
-                            found += 1
 
                         else:
-                            # If a ball has been detected
-                            if found > 0:
-                                if ball.conf > conf:
-                                    # Only update if the conf is greater than previous
-                                    found += 1
-                                    continue
-                                else:
-                                    # update the ball center, more likely to be ball
-                                    ball.update(xyxy, conf, empty_frame)
-                            #        plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
-                                    found += 1
-
-                            else:
-                                ball.update(xyxy, conf, empty_frame)
-                            #    plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
-                                found += 1
-
+                            # update the ball center, more likely to be ball
+                            #ball.update(xyxy, conf, empty_frame)
+                            #plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
+                            ball_detect_info = [xyxy, conf, cls]
 
                 #if found > 1:
                     #print("detected", found, "balls")
@@ -288,29 +276,36 @@ def detect(opt, ball, save_img=False):
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
                         if "ball" in label:
-                            if found == 0:
-                                print("an error occured")
                             pass
                         else:
                             if "net" in label:
-                                
                                 c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-                                if ball.contained_in(c1,c2):
+                                if check_intersect(find_center(ball_detect_info[0]), c1, c2):
                                     print("basket")
+                                    """
                                     if ball.ctr[1] > frame.shape[1]//2:
                                         print("score right")
                                     else:
                                         print("score left")
+                                    """
                             elif "backboard" in label:
                                 c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-                                if ball.contained_in(c1,c2):
+                                if check_intersect(find_center(xyxy2pts(ball_detect_info[0])), c1,c2):
                                     pass
                                     #print("shot")
 
                             if opt.all or ("person" in label and opt.people):
-                                c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-                                if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                    plot_one_box(xyxy, im0, label=label, color=[0,0,255], line_thickness=3)
+                                c1, c2 = xyxy2pts(xyxy)
+                                #c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+                                #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
+                                if ball_detect_info:
+                                    b1, b2 = xyxy2pts(ball_detect_info[0])
+                                    #b1, b2 = (int(ball_detect_info[0][0]), int(ball_detect_info[0][1])), (int(ball_detect_info[0][2]), int(ball_detect_info[0][3]))
+                                    print(c1, c2, xyxy2pts(ball_detect_info[0]))
+                                    #if check_intersect(find_center(xyxy2pts(ball_detect_info[0])), c1, c2):
+                                        #plot_one_box(xyxy, im0, label=label, color=[0,0,255], line_thickness=3)
+                                    #else:
+                                        #plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
                                 else:
                                     plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
 
@@ -331,26 +326,21 @@ def detect(opt, ball, save_img=False):
                     if next_ball_frame is not None:
                         #ball.set_box(future_frames[next_ball_frame][3])
                         #ball.box2ctr()
-
                         # Set interpolated ball here
-                        print("Next ball is ", next_ball_frame,"frames away at position: ", future_frames[next_ball_frame][3], ball.bbox)
-                        p1 = (int(future_frames[next_ball_frame][3][0]), int(future_frames[next_ball_frame][3][1]))
-                        p2 = (int(future_frames[next_ball_frame][3][0] + future_frames[next_ball_frame][3][2]), int(future_frames[next_ball_frame][3][1] + future_frames[next_ball_frame][3][3]))
-
+                        p1, p2 = xyxy2pts(future_frames[next_ball_frame][3][0])
+                        print("Next ball is ", next_ball_frame,"frames away at position: ", p1, p2)
+                        calculate
                         cv.rectangle(im0, p1, p2, (255,255,0), 2, 1)
+
             frame = ball.draw_box(im0)
 
-            future_frames.append([empty_frame, frame, found, ball.bbox, det])
+            future_frames.append([empty_frame, frame, found, ball_detect_info, det])
             if len(future_frames) >= 100:
                 past_frames.append(present_frame)
                 if len(past_frames) >= 100:
                     past_frames.pop(0)
                 present_frame = future_frames.pop(0)
 
-                """
-                SO MUCH WORK
-                Low Scott, make present_data = the data from xyxy and det and all of that, so it can go back and find the people, and the ball
-                """
 
             if next_ball_frame:
                 next_ball_frame -= 1

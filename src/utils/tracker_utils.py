@@ -144,3 +144,13 @@ def find_next_ball(frames):
         if frames[i][2] > 0:
             return i
     return None
+
+def check_intersect(ball_xyxy, p1, p2):
+    """
+    Returns true if ball_coords is between two points
+    """
+    b1 = find_center(xyxy2pts(ball_xyxy))
+    return ((p1[0] <= b1[0] <= p2[0]) and (p1[1] <= b1[1] <= p2[1]))
+
+def xyxy2pts(xyxy):
+    return (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
