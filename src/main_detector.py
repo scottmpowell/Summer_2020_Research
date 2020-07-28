@@ -82,7 +82,7 @@ def redraw():
                 # Tracking failure
                 cv.putText(frame, "Tracking failure detected", (100,80), cv.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
     if has_ball:
-        ball.draw_ctr
+        #ball.draw_box
         ball_ret, ball_bbox = ball_tracker.update(empty_frame)
         # Draw bounding box
         if ball_ret:
@@ -129,7 +129,7 @@ def detect(opt, ball, save_img=False):
 
 
     # Index of frame that will next contain the ball
-    next_find = None
+    next_ball_frame = None
 
     # Set arguments
     out, source, weights, view_img, save_txt, imgsz = \
@@ -197,8 +197,6 @@ def detect(opt, ball, save_img=False):
             img = img.unsqueeze(0)
         empty_frame = im0s.copy()
 
-        # Check tracker to see if a center can be determined
-        ball.check_tracker(empty_frame)
 
         # Inference
         t1 = torch_utils.time_synchronized()
@@ -232,8 +230,10 @@ def detect(opt, ball, save_img=False):
                     n = (det[:, -1] == c).sum()  # detections per class
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
                 
+
                 # Find ball first
                 found = 0
+                ball_detect_info = None
                 for *xyxy, conf, cls in det:
                     # If detected object is ball
                     if names[int(cls)] == "ball":
@@ -314,6 +314,10 @@ def detect(opt, ball, save_img=False):
                                 else:
                                     plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
 
+            # Begin tracking Ball
+
+            # Check tracker to see if a center can be determined
+            ball.check_tracker(empty_frame)
  
             # If no ball detected, check to see if tracker has anything
             if found == 0:
@@ -321,20 +325,35 @@ def detect(opt, ball, save_img=False):
                     # Ball is lost
                     ball.has_ball = False
 
-            # Print time (inference + NMS)
-            frame = ball.draw_ctr(im0)
-            future_frames.append([empty_frame, frame, found, ball.bbox])
-            if next_find is None or next_find < 1:
-                next_find = find_next(future_frames)
-                #print("Next ball is ", next_find,"frames away at position: ", future_frames[next_find][3])
+                    
+                    if next_ball_frame is None or next_ball_frame < 1:
+                        next_ball_frame = find_next_ball(future_frames)
+                    if next_ball_frame is not None:
+                        #ball.set_box(future_frames[next_ball_frame][3])
+                        #ball.box2ctr()
 
+                        # Set interpolated ball here
+                        print("Next ball is ", next_ball_frame,"frames away at position: ", future_frames[next_ball_frame][3], ball.bbox)
+                        p1 = (int(future_frames[next_ball_frame][3][0]), int(future_frames[next_ball_frame][3][1]))
+                        p2 = (int(future_frames[next_ball_frame][3][0] + future_frames[next_ball_frame][3][2]), int(future_frames[next_ball_frame][3][1] + future_frames[next_ball_frame][3][3]))
+
+                        cv.rectangle(im0, p1, p2, (255,255,0), 2, 1)
+            frame = ball.draw_box(im0)
+
+            future_frames.append([empty_frame, frame, found, ball.bbox, det])
             if len(future_frames) >= 100:
                 past_frames.append(present_frame)
-                if len(past_frames) >= 10:
+                if len(past_frames) >= 100:
                     past_frames.pop(0)
                 present_frame = future_frames.pop(0)
 
+                """
+                SO MUCH WORK
+                Low Scott, make present_data = the data from xyxy and det and all of that, so it can go back and find the people, and the ball
+                """
 
+            if next_ball_frame:
+                next_ball_frame -= 1
             # Stream results
             if view_img:
                 #cv2.imshow(p, im0)
@@ -343,7 +362,7 @@ def detect(opt, ball, save_img=False):
                 # cv.putText(frame, )
                 #if len(future_frames) >= 100:
                     #cv2.imshow("Video", frame) #ball.frames[25][0])
-
+            
                 if present_frame:
                     cv2.imshow("Video", present_frame[1])
                     if past_frames[0]:

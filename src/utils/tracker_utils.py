@@ -32,12 +32,12 @@ class Ball:
         """
         Returns True if ball_ctr is between two 2D points
         """
-        if self.ctr == None:
+        if self.ctr is None:
             # Ball is unknown
             return False
         return ((p1[0] <= self.ctr[0] <= p2[0]) and (p1[1] <= self.ctr[1] <= p2[1]))
 
-    def set_box(self, p1, p2):
+    def pts2box(self, p1, p2):
         """
         Changes the bounding box of the ball. Bounding box format is (p1.x, p1.y, width, height)
         """
@@ -56,8 +56,10 @@ class Ball:
         """
         self.ctr = (self.bbox[0] + (self.bbox[2] // 2), self.bbox[1] + (self.bbox[3] //2))
 
+    def set_box(self, bbox):
+        self.bbox = bbox
 
-    def draw_ctr(self, frame):
+    def draw_box(self, frame):
         """
         Return the input frame with ball's bounding box.
         """
@@ -68,6 +70,8 @@ class Ball:
                 return frame
             cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (int(self.bbox[0]) + int(self.bbox[2]), int(self.bbox[1]) + int(self.bbox[3])), (255,0,255), 4, 1)
             #cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (100,100), (0,255,0), 2, 1)
+            cv.putText(frame, "Ball", ((int(self.bbox[0]), int(self.bbox[1] - 2))), 0, 1, [225, 255, 255], thickness=2, lineType=cv.LINE_AA) 
+
             return frame
             
             #cv.rectangle(frame, self.ctr, self.ctr, (0,255,0), 2, 1)
@@ -85,9 +89,7 @@ class Ball:
             # There is a tracker, see if it can track
             # If it can't, self.bbox is set to 0
             ret, self.bbox = self.tracker.update(empty_frame)
-            print(ret, self.bbox)
             if ret:
-                print(self.bbox)
                 # Tracking success
                 self.box2ctr()
             else :
@@ -95,12 +97,14 @@ class Ball:
                 self.has_tracker = False
 
     def distance(self, p1):
+        if self.ctr is None:
+            return 
         return np.sqrt(abs(self.ctr[0] - p1[0])**2 + abs(self.ctr[1] - p1[1])**2)
 
 
     def update(self, xyxy, conf, empty_frame):
         c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
-        self.set_box(c1, c2)
+        self.pts2box(c1, c2)
         self.prev_box = self.ctr
         self.set_ctr(c1, c2)
         self.tracker = cv.TrackerKCF_create()
@@ -135,7 +139,8 @@ def begin_track(empty_frame, frame, trackers):
 
     return tracker_counter
 
-def find_next(frames):
+def find_next_ball(frames):
     for i in range(len(frames)):
         if frames[i][2] > 0:
             return i
+    return None
