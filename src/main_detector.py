@@ -267,7 +267,9 @@ def detect(opt, ball, save_img=False):
                 present_detections, present_ball_info, present_det = present_frame[1], present_frame[2], present_frame[3]
                 
                 # Check tracker to see if a center can be determined
-                ball.check_tracker(empty_frame)
+                ball.check_tracker(present_frame[0])
+                if present_ball_info:
+                    b1, b2 = xyxy2pts(present_ball_info[0])
 
                 # Write results
                 for *xyxy, conf, cls in present_det:
@@ -280,8 +282,6 @@ def detect(opt, ball, save_img=False):
 
                     c1, c2 = xyxy2pts(xyxy)
                     if present_ball_info:
-                        if ball.has_tracker:
-                            print("conflict")
                         ball_check = check_intersect(present_ball_info[0], c1, c2)
 
                     if save_img or view_img:  # Add bbox to image
@@ -306,7 +306,6 @@ def detect(opt, ball, save_img=False):
                             if opt.all or ("person" in label and opt.people):
                                 #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
                                 if ball_detect_info:
-                                    b1, b2 = xyxy2pts(ball_detect_info[0])
                                     if ball_check:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                     else:
@@ -314,7 +313,14 @@ def detect(opt, ball, save_img=False):
                                 else:
                                     plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
-                # If no ball detected, check to see if tracker has anything
+                # If no ball ected, check to see if tracker has anything
+                # If no tracker, set tracker on this ball
+                if not ball.has_tracker:
+                    if present_ball_info:
+                        ball.update(present_ball_info[0], present_frame[0])
+                if ball.has_tracker:
+                    ball.draw_box(present_frame[0])
+
                 if found == 0:
                     if ball.has_tracker == False:
                         # Ball is lost
@@ -324,18 +330,26 @@ def detect(opt, ball, save_img=False):
                         if next_ball_frame is None or next_ball_frame < 1:
                             next_ball_frame = find_next_ball(future_frames)
                         if next_ball_frame is not None:
+                            pass
                             #ball.set_box(future_frames[next_ball_frame][3])
                             #ball.box2ctr()
                             # Set interpolated ball here
-                            p1, p2 = xyxy2pts(future_frames[next_ball_frame][3][0])
-                            cv.rectangle(present_frame[0], p1, p2, (255,255,0), 2, 1)
+                            #p1, p2 = xyxy2pts(future_frames[next_ball_frame][3][0])
+                            #cvrectangle(present_frame[0], p1, p2, (255,255,0), 2, 1)
 
-            if present_frame:
-                cv2.imshow("Video", present_frame[0]) 
-                if past_frames[0]:
-                    if past_frames[0][2]:
-                        pass
-                        #print("ball seen at", past_frames[0][3])
+            # Stream results
+            if view_img:
+                if present_frame:
+                    cv2.imshow("Video", present_frame[0]) 
+                    if past_frames[0]:
+                        if past_frames[0][2]:
+                            pass
+                            #print("ball seen at", past_frames[0][3])
+                k = cv2.waitKey(1)
+                if k == ord('q'):  # q to quit
+                    raise StopIteration
+                else:
+                    check_commands(k)
 
             future_frames.append([empty_frame, found, ball_detect_info, det])
             if len(future_frames) >= 100:
@@ -348,18 +362,6 @@ def detect(opt, ball, save_img=False):
             if next_ball_frame:
                 next_ball_frame -= 1
 
-            # Stream results
-            if view_img:
-                #cv2.imshow(p, im0)
-                #frame = redraw()
-                
-                #if len(future_frames) >= 100:
-            
-                k = cv2.waitKey(1)
-                if k == ord('q'):  # q to quit
-                    raise StopIteration
-                else:
-                    check_commands(k)
 
             """
             # Save results (image with detections)

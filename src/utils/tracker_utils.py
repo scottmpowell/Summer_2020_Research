@@ -25,7 +25,6 @@ class Ball:
         self.ctr = ctr # ctr is the centerpoint of the ball. Used for distance calculations
         self.has_tracker = has_tracker # Set to False if the ball tracker fails to find the ball from the tracker
         self.has_ball = has_ball # Set to False if has_tracker is false and no ball is detected that frame
-        self.conf = None # Confidence of the ball. 
 
 
     def contained_in(self, p1, p2):
@@ -69,7 +68,6 @@ class Ball:
             if self.bbox == (0,0,0,0):
                 return frame
             cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (int(self.bbox[0]) + int(self.bbox[2]), int(self.bbox[1]) + int(self.bbox[3])), (255,0,255), 4, 1)
-            #cv.rectangle(frame, (int(self.bbox[0]), int(self.bbox[1])), (100,100), (0,255,0), 2, 1)
             cv.putText(frame, "Ball", ((int(self.bbox[0]), int(self.bbox[1] - 2))), 0, 1, [225, 255, 255], thickness=2, lineType=cv.LINE_AA) 
 
             return frame
@@ -102,7 +100,7 @@ class Ball:
         return np.sqrt(abs(self.ctr[0] - p1[0])**2 + abs(self.ctr[1] - p1[1])**2)
 
 
-    def update(self, xyxy, conf, empty_frame):
+    def update(self, xyxy, empty_frame):
         c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
         self.pts2box(c1, c2)
         self.prev_box = self.ctr
@@ -111,7 +109,6 @@ class Ball:
         self.tracker.init(empty_frame, self.bbox)
         self.has_tracker = True
         self.has_ball = True
-        self.conf = conf
 
 
 def delete_tracker(x, y, trackers):
