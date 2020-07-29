@@ -308,14 +308,12 @@ def detect(opt, ball, save_img=False):
                                 #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
                                 if ball_detect_info:
                                     if ball_check:
-                                        checked += 1
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                     else:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
                                 else:
                                     plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
-                print(checked)
                 # If no ball ected, check to see if tracker has anything
                 if not ball.has_tracker:
                     if present_ball_info:
@@ -334,7 +332,7 @@ def detect(opt, ball, save_img=False):
                         ball.has_ball = False
                         if next_ball_frame is None or next_ball_frame < 1:
                             next_ball_frame = find_next_ball(future_frames)
-                        if next_ball_frame is not None and next_ball_frame is not 0:
+                        if next_ball_frame is not None and next_ball_frame != 0:
                             # Tracker failed, ball detected in < 100 frames
 
                             f1, f2 = xyxy2pts(future_frames[next_ball_frame][2][0])
@@ -409,7 +407,6 @@ def detect(opt, ball, save_img=False):
             os.system('open ' + save_path)
             """
 
-    #print('Done. (%.3fs)' % (time.time() - t0))
 
 # MAIN
 if __name__ == "__main__":
