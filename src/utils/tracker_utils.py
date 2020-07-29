@@ -141,7 +141,7 @@ def begin_track(empty_frame, frame, trackers):
 
 def find_next_ball(frames):
     for i in range(len(frames)):
-        if frames[i][2] > 0:
+        if frames[i][1] > 0:
             return i
     return None
 
@@ -149,8 +149,12 @@ def check_intersect(ball_xyxy, p1, p2):
     """
     Returns true if ball_coords is between two points
     """
-    b1 = find_center(xyxy2pts(ball_xyxy))
-    return ((p1[0] <= b1[0] <= p2[0]) and (p1[1] <= b1[1] <= p2[1]))
+    b1, b2 = xyxy2pts(ball_xyxy)
+    bctr = find_center(b1, b2)
+    return ((p1[0] <= bctr[0] <= p2[0]) and (p1[1] <= bctr[1] <= p2[1]))
 
 def xyxy2pts(xyxy):
-    return (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
+    
+    p1 = (int(xyxy[0]), int(xyxy[1]))
+    p2 = (int(xyxy[2]), int(xyxy[3]))
+    return p1, p2
