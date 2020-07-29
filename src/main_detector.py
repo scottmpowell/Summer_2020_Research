@@ -272,6 +272,7 @@ def detect(opt, ball, save_img=False):
                     b1, b2 = xyxy2pts(present_ball_info[0])
 
                 # Write results
+                checked = 0
                 for *xyxy, conf, cls in present_det:
                     """
                     if save_txt:  # Write to file
@@ -291,7 +292,7 @@ def detect(opt, ball, save_img=False):
                         else:
                             if "net" in label:
                                 if ball_check:
-                                    print("basket")
+                                    pass
                                     """
                                     if ball.ctr[1] > frame.shape[1]//2:
                                         print("score right")
@@ -307,35 +308,57 @@ def detect(opt, ball, save_img=False):
                                 #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
                                 if ball_detect_info:
                                     if ball_check:
+                                        checked += 1
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                     else:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
                                 else:
                                     plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
+                print(checked)
                 # If no ball ected, check to see if tracker has anything
-                # If no tracker, set tracker on this ball
                 if not ball.has_tracker:
                     if present_ball_info:
+                        # If no tracker, set tracker on this ball
                         ball.update(present_ball_info[0], present_frame[0])
-                if ball.has_tracker:
-                    ball.draw_box(present_frame[0])
+                    else:
+                        # No ball detected, find next ball
+                        #next_ball = find_next_ball
+                        pass
+
+
 
                 if found == 0:
                     if ball.has_tracker == False:
                         # Ball is lost
                         ball.has_ball = False
-
-                    
                         if next_ball_frame is None or next_ball_frame < 1:
                             next_ball_frame = find_next_ball(future_frames)
-                        if next_ball_frame is not None:
-                            pass
+                        if next_ball_frame is not None and next_ball_frame is not 0:
+                            # Tracker failed, ball detected in < 100 frames
+
+                            f1, f2 = xyxy2pts(future_frames[next_ball_frame][2][0])
+                            # Interpolate box
+
+                            i1 = (int((ball.last_bbox[0] + ((f1[0] - ball.last_bbox[0])//next_ball_frame))), int(ball.last_bbox[1] + ((f1[1] - ball.last_bbox[1])//next_ball_frame)))
+                            i2 = ((ball.last_bbox[0] + ball.last_bbox[2] + ((f2[0] - ball.last_bbox[0] - ball.last_bbox[2])//next_ball_frame)), ball.last_bbox[1] + ball.last_bbox[3] + ((f1[1] - ball.last_bbox[1] - ball.last_bbox[3])//next_ball_frame))
+
+                            ball.pts2box(i1,i2)
+                            ball.box2ctr()
+                            ball.has_ball = True
+                            
                             #ball.set_box(future_frames[next_ball_frame][3])
                             #ball.box2ctr()
                             # Set interpolated ball here
                             #p1, p2 = xyxy2pts(future_frames[next_ball_frame][3][0])
                             #cvrectangle(present_frame[0], p1, p2, (255,255,0), 2, 1)
+
+                        else:
+                            # Tracker failed, ball not detected for 100 frames
+                            pass
+
+            if ball.has_ball:
+                ball.draw_box(present_frame[0])
 
             # Stream results
             if view_img:

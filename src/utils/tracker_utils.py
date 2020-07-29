@@ -25,6 +25,7 @@ class Ball:
         self.ctr = ctr # ctr is the centerpoint of the ball. Used for distance calculations
         self.has_tracker = has_tracker # Set to False if the ball tracker fails to find the ball from the tracker
         self.has_ball = has_ball # Set to False if has_tracker is false and no ball is detected that frame
+        self.last_bbox = (0, 0, 0, 0)
 
 
     def contained_in(self, p1, p2):
@@ -86,11 +87,14 @@ class Ball:
         else:
             # There is a tracker, see if it can track
             # If it can't, self.bbox is set to 0
-            ret, self.bbox = self.tracker.update(empty_frame)
+            ret, bbox = self.tracker.update(empty_frame)
             if ret:
                 # Tracking success
+                self.bbox = bbox
                 self.box2ctr()
             else :
+                self.last_bbox = self.bbox
+                self.bbox = (0, 0, 0, 0)
                 # Tracking failure
                 self.has_tracker = False
 
