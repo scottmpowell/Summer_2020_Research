@@ -308,11 +308,11 @@ def detect(opt, ball, save_img=False):
                                 if ball_detect_info:
                                     b1, b2 = xyxy2pts(ball_detect_info[0])
                                     if ball_check:
-                                        plot_one_box(xyxy, im0, label=label, color=[0,0,255], line_thickness=3)
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                     else:
-                                        plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
                                 else:
-                                    plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
+                                    plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
                 # If no ball detected, check to see if tracker has anything
                 if found == 0:
@@ -328,7 +328,14 @@ def detect(opt, ball, save_img=False):
                             #ball.box2ctr()
                             # Set interpolated ball here
                             p1, p2 = xyxy2pts(future_frames[next_ball_frame][3][0])
-                            cv.rectangle(im0, p1, p2, (255,255,0), 2, 1)
+                            cv.rectangle(present_frame[0], p1, p2, (255,255,0), 2, 1)
+
+            if present_frame:
+                cv2.imshow("Video", present_frame[0]) 
+                if past_frames[0]:
+                    if past_frames[0][2]:
+                        pass
+                        #print("ball seen at", past_frames[0][3])
 
             future_frames.append([empty_frame, found, ball_detect_info, det])
             if len(future_frames) >= 100:
@@ -348,13 +355,6 @@ def detect(opt, ball, save_img=False):
                 
                 #if len(future_frames) >= 100:
             
-                if present_frame:
-                    cv2.imshow("Video", im0) #present_frame[0])
-                    if past_frames[0]:
-                        if past_frames[0][2]:
-                            pass
-                            #print("ball seen at", past_frames[0][3])
-
                 k = cv2.waitKey(1)
                 if k == ord('q'):  # q to quit
                     raise StopIteration
