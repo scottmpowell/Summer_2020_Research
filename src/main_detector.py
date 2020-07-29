@@ -261,7 +261,7 @@ def detect(opt, ball, save_img=False):
 
 
             # Write results
-            frame = ball.draw_box(im0)
+            #frame = ball.draw_box(im0)
 
             if present_frame:
                 present_detections, present_ball_info, present_det = present_frame[1], present_frame[2], present_frame[3]
@@ -280,7 +280,10 @@ def detect(opt, ball, save_img=False):
 
                     c1, c2 = xyxy2pts(xyxy)
                     if present_ball_info:
+                        if ball.has_tracker:
+                            print("conflict")
                         ball_check = check_intersect(present_ball_info[0], c1, c2)
+
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
                         if "ball" in label:
@@ -304,10 +307,10 @@ def detect(opt, ball, save_img=False):
                                 #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
                                 if ball_detect_info:
                                     b1, b2 = xyxy2pts(ball_detect_info[0])
-                                    #if check_intersect(find_center(xyxy2pts(ball_detect_info[0])), c1, c2):
-                                        #plot_one_box(xyxy, im0, label=label, color=[0,0,255], line_thickness=3)
-                                    #else:
-                                        #plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
+                                    if ball_check:
+                                        plot_one_box(xyxy, im0, label=label, color=[0,0,255], line_thickness=3)
+                                    else:
+                                        plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
                                 else:
                                     plot_one_box(xyxy, im0, label=label, color=[255,0,0], line_thickness=3)
 
@@ -341,12 +344,12 @@ def detect(opt, ball, save_img=False):
             # Stream results
             if view_img:
                 #cv2.imshow(p, im0)
-                frame = redraw()
+                #frame = redraw()
                 
                 #if len(future_frames) >= 100:
             
                 if present_frame:
-                    cv2.imshow("Video", present_frame[0])
+                    cv2.imshow("Video", im0) #present_frame[0])
                     if past_frames[0]:
                         if past_frames[0][2]:
                             pass
