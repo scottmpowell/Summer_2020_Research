@@ -271,49 +271,6 @@ def detect(opt, ball, save_img=False):
                 if present_ball_info:
                     b1, b2 = xyxy2pts(present_ball_info[0])
 
-                # Write results
-                checked = 0
-                for *xyxy, conf, cls in present_det:
-                    """
-                    if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
-                    """
-
-                    c1, c2 = xyxy2pts(xyxy)
-                    if present_ball_info:
-                        ball_check = check_intersect(present_ball_info[0], c1, c2)
-
-                    if save_img or view_img:  # Add bbox to image
-                        label = '%s %.2f' % (names[int(cls)], conf)
-                        if "ball" in label:
-                            pass
-                        else:
-                            if "net" in label:
-                                if ball_check:
-                                    pass
-                                    """
-                                    if ball.ctr[1] > frame.shape[1]//2:
-                                        print("score right")
-                                    else:
-                                        print("score left")
-                                    """
-                            elif "backboard" in label:
-                                if ball_check:
-                                    pass
-                                    #print("shot")
-
-                            if opt.all or ("person" in label and opt.people):
-                                #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                if ball_detect_info:
-                                    if ball_check:
-                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
-                                    else:
-                                        plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
-                                else:
-                                    plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
-
                 # If no ball ected, check to see if tracker has anything
                 if not ball.has_tracker:
                     if present_ball_info:
@@ -349,6 +306,44 @@ def detect(opt, ball, save_img=False):
                         else:
                             # Tracker failed, ball not detected for 100 frames
                             pass
+                # Write results
+                checked = 0
+
+                for *xyxy, conf, cls in present_det:
+                    """
+                    if save_txt:  # Write to file
+                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                        with open(txt_path + '.txt', 'a') as f:
+                            f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
+                    """
+
+                    c1, c2 = xyxy2pts(xyxy)
+                    if present_ball_info:
+                        ball_check = ball.contained_in(c1, c2)
+
+                    if save_img or view_img:  # Add bbox to image
+                        label = '%s %.2f' % (names[int(cls)], conf)
+                        if "ball" in label:
+                            pass
+                        else:
+                            if "net" in label:
+                                if ball_check:
+                                    pass
+                            elif "backboard" in label:
+                                if ball_check:
+                                    pass
+                                    #print("shot")
+
+                            if opt.all or ("person" in label and opt.people):
+                                #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
+                                if ball_detect_info:
+                                    if ball_check or ball.distance(find_center(c1,c2)) < 200:
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
+                                    else:
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
+                                else:
+                                    plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
+
 
             if ball.has_ball:
                 ball.draw_box(present_frame[0])

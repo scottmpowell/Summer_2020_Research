@@ -159,7 +159,7 @@ def check_intersect(ball_xyxy, p1, p2):
     """
     b1, b2 = xyxy2pts(ball_xyxy)
     bctr = find_center(b1, b2)
-    return ((p1[0] <= bctr[0] <= p2[0]) and (p1[1] <= bctr[1] <= p2[1]))
+    return((p1[0] <= bctr[0] <= p2[0]) and (p1[1] <= bctr[1] <= p2[1]))
 
 def xyxy2pts(xyxy):
     
