@@ -99,6 +99,7 @@ class Ball:
                     self.last_bbox = self.bbox
                     self.bbox = (0, 0, 0, 0)
                     self.has_tracker = False
+                    
             else :
                 self.last_bbox = self.bbox
                 self.bbox = bbox # zero
@@ -114,7 +115,6 @@ class Ball:
     def update(self, xyxy, empty_frame):
         c1, c2 = (int(xyxy[0]), int(xyxy[1])), (int(xyxy[2]), int(xyxy[3]))
         self.pts2box(c1, c2)
-        self.prev_box = self.ctr
         self.set_ctr(c1, c2)
         self.tracker = cv.TrackerKCF_create()
         self.tracker.init(empty_frame, self.bbox)

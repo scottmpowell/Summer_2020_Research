@@ -247,16 +247,9 @@ def detect(opt, ball, save_img=False):
                             # Set tracker on this ball, update ball properties
                             else:
                                 ball_detect_info = [xyxy, conf]
-                            #ball.update(xyxy, conf, empty_frame)
-                            #plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
                         else:
                             # update the ball center, more likely to be ball
-                            #ball.update(xyxy, conf, empty_frame)
-                            #plot_one_box(xyxy, im0, label=names[int(cls)], color=colors[int(cls)], line_thickness=3)
                             ball_detect_info = [xyxy, conf]
-
-                #if found > 1:
-                    #print("detected", found, "balls")
 
 
 
@@ -276,23 +269,13 @@ def detect(opt, ball, save_img=False):
                     if present_ball_info:
                         # If no tracker, set tracker on this ball
                         ball.update(present_ball_info[0], present_frame[0])
+                        ball.has_ball = True
                     else:
-                        if present_ball_info:
-                            # If no tracker, set tracker on this ball
-                            ball.update(present_ball_info[0], present_frame[0])
-                        pass
-
-
-
-                if found == 0:
-                    if ball.has_tracker == False:
-                        # Ball is lost
-                        ball.has_ball = False
-                        if next_ball_frame is None or next_ball_frame < 1:
+                        if next_ball_frame is None or next_ball_frame < 0:
                             next_ball_frame = find_next_ball(future_frames)
+
                         if next_ball_frame is not None and next_ball_frame != 0:
                             # Tracker failed, ball detected in < 100 frames
-
                             f1, f2 = xyxy2pts(future_frames[next_ball_frame][2][0])
                             # Interpolate box
 
@@ -305,7 +288,12 @@ def detect(opt, ball, save_img=False):
                             
                         else:
                             # Tracker failed, ball not detected for 100 frames
-                            pass
+                            ball.has_ball = False
+                else: # ball ha`
+                    pass
+
+
+
                 # Write results
                 checked = 0
 
@@ -318,7 +306,7 @@ def detect(opt, ball, save_img=False):
                     """
 
                     c1, c2 = xyxy2pts(xyxy)
-                    if present_ball_info:
+                    if ball.has_ball:
                         ball_check = ball.contained_in(c1, c2)
 
                     if save_img or view_img:  # Add bbox to image
@@ -336,11 +324,8 @@ def detect(opt, ball, save_img=False):
 
                             if opt.all or ("person" in label and opt.people):
                                 #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                if ball_detect_info:
-                                    if ball_check or ball.distance(find_center(c1,c2)) < 200:
-                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
-                                    else:
-                                        plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
+                                if ball_check or ball.distance(find_center(c1,c2)) < 200:
+                                    plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                 else:
                                     plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
@@ -356,7 +341,7 @@ def detect(opt, ball, save_img=False):
                         if past_frames[0][2]:
                             pass
                             #print("ball seen at", past_frames[0][3])
-                k = cv2.waitKey(1)
+                k = cv2.waitKey(20)
                 if k == ord('q'):  # q to quit
                     raise StopIteration
                 else:
