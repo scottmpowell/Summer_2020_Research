@@ -26,6 +26,7 @@ class Ball:
         self.has_tracker = has_tracker # Set to False if the ball tracker fails to find the ball from the tracker
         self.has_ball = has_ball # Set to False if has_tracker is false and no ball is detected that frame
         self.last_bbox = (0, 0, 0, 0)
+        self.age = 0
 
 
     def contained_in(self, p1, p2):
@@ -92,9 +93,15 @@ class Ball:
                 # Tracking success
                 self.bbox = bbox
                 self.box2ctr()
+                self.age += 1
+                if self.age >= 7:
+                    self.age = 0
+                    self.last_bbox = self.bbox
+                    self.bbox = (0, 0, 0, 0)
+                    self.has_tracker = False
             else :
                 self.last_bbox = self.bbox
-                self.bbox = (0, 0, 0, 0)
+                self.bbox = bbox # zero
                 # Tracking failure
                 self.has_tracker = False
 

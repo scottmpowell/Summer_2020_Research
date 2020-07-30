@@ -320,8 +320,9 @@ def detect(opt, ball, save_img=False):
                         # If no tracker, set tracker on this ball
                         ball.update(present_ball_info[0], present_frame[0])
                     else:
-                        # No ball detected, find next ball
-                        #next_ball = find_next_ball
+                        if present_ball_info:
+                            # If no tracker, set tracker on this ball
+                            ball.update(present_ball_info[0], present_frame[0])
                         pass
 
 
@@ -345,12 +346,6 @@ def detect(opt, ball, save_img=False):
                             ball.box2ctr()
                             ball.has_ball = True
                             
-                            #ball.set_box(future_frames[next_ball_frame][3])
-                            #ball.box2ctr()
-                            # Set interpolated ball here
-                            #p1, p2 = xyxy2pts(future_frames[next_ball_frame][3][0])
-                            #cvrectangle(present_frame[0], p1, p2, (255,255,0), 2, 1)
-
                         else:
                             # Tracker failed, ball not detected for 100 frames
                             pass
