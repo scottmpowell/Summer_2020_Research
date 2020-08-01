@@ -35,8 +35,8 @@ def pause_video():
         k = cv.waitKey(5) & 0xff
         check_commands(k)
 
-def check_commands(k):
-        global empty_frame, pause, is_deleting, frame, trackers, is_tracking, imgno, im0 
+def check_commands(k, frame):
+        global empty_frame, pause, is_deleting, trackers, is_tracking, imgno, im0 
         cv.setMouseCallback("Video", handler)
         if k == ord('q'):
             sys.exit()
@@ -44,7 +44,7 @@ def check_commands(k):
             pause = not pause 
             pause_video()
         elif k == ord('s'):
-            num_trackers = begin_track(empty_frame, frame, trackers)
+            num_trackers = begin_track(empty_frame, trackers)
             if num_trackers > 0:
                 is_tracking = True
             else: 
@@ -185,6 +185,11 @@ def detect(opt, ball, save_img=False):
     # Scoreboard
     right = 0
     left = 0
+    
+    important_event = 0
+    vid_writer_annotated = cv2.VideoWriter("annotated.avi", cv.VideoWriter_fourcc(*opt.fourcc), 30, (1280, 720))
+    vid_writer_bare = cv2.VideoWriter("highlights.avi", cv.VideoWriter_fourcc(*opt.fourcc), 30, (1280, 720))
+
 
     for path, img, im0s, vid_cap in dataset:
         img = torch.from_numpy(img).to(device)
@@ -258,9 +263,11 @@ def detect(opt, ball, save_img=False):
 
             if present_frame:
                 present_detections, present_ball_info, present_det = present_frame[1], present_frame[2], present_frame[3]
+                no_detections = present_frame[0].copy()
                 
                 # Check tracker to see if a center can be determined
-                ball.check_tracker(present_frame[0])
+                if ball.has_tracker:
+                    ball.check_tracker(present_frame[0])
                 if present_ball_info:
                     b1, b2 = xyxy2pts(present_ball_info[0])
 
@@ -289,7 +296,7 @@ def detect(opt, ball, save_img=False):
                         else:
                             # Tracker failed, ball not detected for 100 frames
                             ball.has_ball = False
-                else: # ball ha`
+                else: # ball has tracker
                     pass
 
 
@@ -297,39 +304,47 @@ def detect(opt, ball, save_img=False):
                 # Write results
                 checked = 0
 
-                for *xyxy, conf, cls in present_det:
-                    """
-                    if save_txt:  # Write to file
-                        xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        with open(txt_path + '.txt', 'a') as f:
-                            f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
-                    """
+                # In the exceedingly unlikely scenario that not a single object is detected. Don't get angry
+                if present_det is not None:
+                    num_checks = 0
+                    for *xyxy, conf, cls in present_det:
+                        """
+                        if save_txt:  # Write to file
+                            xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
+                            with open(txt_path + '.txt', 'a') as f:
+                                f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
+                        """
 
-                    c1, c2 = xyxy2pts(xyxy)
-                    if ball.has_ball:
-                        ball_check = ball.contained_in(c1, c2)
-
-                    if save_img or view_img:  # Add bbox to image
-                        label = '%s %.2f' % (names[int(cls)], conf)
-                        if "ball" in label:
-                            pass
+                        c1, c2 = xyxy2pts(xyxy)
+                        if ball.has_ball:
+                            ball_check = ball.contained_in(c1, c2)
                         else:
-                            if "net" in label:
-                                if ball_check:
-                                    pass
-                            elif "backboard" in label:
-                                if ball_check:
-                                    pass
-                                    #print("shot")
+                            ball_check = False
 
-                            if opt.all or ("person" in label and opt.people):
-                                #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                if ball_check or ball.distance(find_center(c1,c2)) < 200:
-                                    plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
-                                else:
-                                    plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
+                        if save_img or view_img:  # Add bbox to image
+                            label = '%s %.2f' % (names[int(cls)], conf)
+                            if "ball" in label:
+                                pass
+                            else:
+                                if "net" in label:
+                                    if ball_check:
+                                        pass
+                                elif "backboard" in label:
+                                    if ball_check:
+                                        important_event = 150
+                                        pass
+                                        #print("shot")
+
+                                if opt.all or ("person" in label and opt.people):
+                                    #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
+                                    if ball_check or ball.distance(find_center(c1,c2)) < 200:
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
+                                    else:
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
 
+                    if num_checks > len(present_det)//2:
+                        print(ball.bbox)
             if ball.has_ball:
                 ball.draw_box(present_frame[0])
 
@@ -341,14 +356,17 @@ def detect(opt, ball, save_img=False):
                         if past_frames[0][2]:
                             pass
                             #print("ball seen at", past_frames[0][3])
-                k = cv2.waitKey(20)
+                k = cv2.waitKey(1)
                 if k == ord('q'):  # q to quit
                     raise StopIteration
                 else:
-                    check_commands(k)
+                    if present_frame:
+                        check_commands(k, present_frame[0])
 
             future_frames.append([empty_frame, found, ball_detect_info, det])
             if len(future_frames) >= 100:
+                if present_frame:
+                    present_frame.append(no_detections)
                 past_frames.append(present_frame)
                 if len(past_frames) >= 100:
                     past_frames.pop(0)
@@ -358,29 +376,11 @@ def detect(opt, ball, save_img=False):
             if next_ball_frame:
                 next_ball_frame -= 1
 
+            if important_event > 0:
+                vid_writer_annotated.write(past_frames[0][0])
+                vid_writer_bare.write(past_frames[0][4])
+                important_event -= 1
 
-            """
-            # Save results (image with detections)
-            if save_img:
-                if dataset.mode == 'images':
-                    cv2.imwrite(save_path, im0)
-                else:
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
-
-                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*opt.fourcc), fps, (w, h))
-                    vid_writer.write(im0)
-
-    if save_txt or save_img:
-        #print('Results saved to %s' % os.getcwd() + os.sep + out)
-        if platform == 'darwin':  # MacOS
-            os.system('open ' + save_path)
-            """
 
 
 # MAIN
@@ -414,6 +414,7 @@ if __name__ == "__main__":
 
     
     cv.namedWindow("Video")
+    out = cv.VideoWriter("highlights.avi", -1, 20.0, (1280,720))
 
     # Initialize global variables. Additionally, create an empty dictionary and set is_tracking to False until an object is selected
     global frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno, has_ball_tracker

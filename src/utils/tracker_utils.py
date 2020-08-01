@@ -36,7 +36,7 @@ class Ball:
         if self.ctr is None:
             # Ball is unknown
             return False
-        return ((p1[0] <= self.ctr[0] <= p2[0]) and (p1[1] <= self.ctr[1] <= p2[1]))
+        return ((p1[0] <= int(self.ctr[0]) <= p2[0]) and (p1[1] <= int(self.ctr[1]) <= p2[1]))
 
     def pts2box(self, p1, p2):
         """
@@ -136,9 +136,10 @@ def find_center(p1, p2):
     return (int((p1[0] + p2[0]) // 2), int((p1[1] + p2[1]) // 2))
 
 # Begin tracking object. Video will pause on current frame and allow selection of a ROI to be trackeddef begin_track(empty_frame, frame, trackers):
-def begin_track(empty_frame, frame, trackers):
+def begin_track(empty_frame, trackers):
+    tracker_counter = 0
     while True: 
-        bbox = cv.selectROI("Video", frame, False)
+        bbox = cv.selectROI("Video", empty_frame, False)
         if bbox == (0,0,0,0):
             return tracker_counter - 1
 
