@@ -330,7 +330,7 @@ def detect(opt, ball, save_img=False):
                                     if ball_check:
                                         pass
                                 elif "backboard" in label:
-                                    if ball_check:
+                                    if ball_check or ball.distance(find_center(c1,c2)) < 100:
                                         important_event = 150
                                         pass
                                         #print("shot")
