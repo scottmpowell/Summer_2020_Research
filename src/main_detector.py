@@ -274,9 +274,15 @@ def detect(opt, ball, save_img=False):
                 # If no ball ected, check to see if tracker has anything
                 if not ball.has_tracker:
                     if present_ball_info:
-                        # If no tracker, set tracker on this ball
-                        ball.update(present_ball_info[0], present_frame[0])
-                        ball.has_ball = True
+                        distance = ball.distance(find_center(b1, b2))
+                        if distance is not None and distance < 200:
+                            # If no tracker, set tracker on this ball
+                            ball.update(present_ball_info[0], present_frame[0])
+                            ball.has_ball = True
+                        else:
+                            # If no tracker, set tracker on this ball
+                            ball.update(present_ball_info[0], present_frame[0])
+                            ball.has_ball = True
                     else:
                         if next_ball_frame is None or next_ball_frame < 0:
                             next_ball_frame = find_next_ball(future_frames)
@@ -297,7 +303,11 @@ def detect(opt, ball, save_img=False):
                             # Tracker failed, ball not detected for 100 frames
                             ball.has_ball = False
                 else: # ball has tracker
-                    pass
+                    if present_ball_info:
+                        if distance is not None and distance < 200:
+                            # If ball is close to last ball, it's probably the same one
+                            ball.update(present_ball_info[0], present_frame[0])
+                            ball.has_ball = True
 
 
 
@@ -316,6 +326,7 @@ def detect(opt, ball, save_img=False):
                         """
 
                         c1, c2 = xyxy2pts(xyxy)
+                        distance = ball.distance(find_center(c1,c2))
                         if ball.has_ball:
                             ball_check = ball.contained_in(c1, c2)
                         else:
@@ -330,14 +341,14 @@ def detect(opt, ball, save_img=False):
                                     if ball_check:
                                         pass
                                 elif "backboard" in label:
-                                    if ball_check or ball.distance(find_center(c1,c2)) < 100:
+                                    if ball_check or distance < 150:
                                         important_event = 150
                                         pass
                                         #print("shot")
 
                                 if opt.all or ("person" in label and opt.people):
                                     #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                    if ball_check or ball.distance(find_center(c1,c2)) < 200:
+                                    if ball_check or distance < 200:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                     else:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
