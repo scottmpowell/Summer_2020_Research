@@ -65,9 +65,9 @@ def check_commands(k, frame):
             # List bounding box of ball
 
 
-def redraw():
+def redraw(empty_frame, frame):
     """redraw takes no arguments. It updates the frame and tracked objects, and then shows the image."""
-    global is_tracking, trackers, has_ball, ball_tracker, ball_bbox, empty_frame, has_ball_tracker
+    global is_tracking, trackers, has_ball, ball_tracker, ball_bbox, has_ball_tracker
     if is_tracking:
         for key in trackers:
             track_ret, trackers[key].bbox = trackers[key].tracker.update(empty_frame)
@@ -79,22 +79,7 @@ def redraw():
                 cv.rectangle(frame, p1, p2, (255,0,0), 2, 1)
             else :
                 # Tracking failure
-                cv.putText(frame, "Tracking failure detected", (100,80), cv.FONT_HERSHEY_SIMPLEX, 0.75,(0,0,255),2)
-    if has_ball:
-        #ball.draw_box
-        ball_ret, ball_bbox = ball_tracker.update(empty_frame)
-        # Draw bounding box
-        if ball_ret:
-            # Tracking success
-            p1 = (int(ball_bbox[0]), int(ball_bbox[1]))
-            p2 = (int(ball_bbox[0] + ball_bbox[2]), int(ball_bbox[1] + ball_bbox[3]))
-            cv.rectangle(frame, p1, p2, (255,0,0), 2, 1)
-            ball.set_ctr(int(ball_bbox[0] + ball_bbox[2] // 2), int(ball_bbox[1] + ball_bbox[3] // 2))
-
-        else :
-            # Tracking failure
-            has_ball_tracker = False
-
+                pass
     return frame
 
 def handler(event, x, y, flags, param):
@@ -318,12 +303,6 @@ def detect(opt, ball, save_img=False):
                 if present_det is not None:
                     num_checks = 0
                     for *xyxy, conf, cls in present_det:
-                        """
-                        if save_txt:  # Write to file
-                            xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                            with open(txt_path + '.txt', 'a') as f:
-                                f.write(('%g ' * 5 + '\n') % (cls, *xywh))  # label format
-                        """
 
                         c1, c2 = xyxy2pts(xyxy)
                         distance = ball.distance(find_center(c1,c2))
@@ -348,7 +327,9 @@ def detect(opt, ball, save_img=False):
 
                                 if opt.all or ("person" in label and opt.people):
                                     #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                    if ball_check or distance < 200:
+                                    if ball_check:
+                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,255,0], line_thickness=3)
+                                    elif distance < 200:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
                                     else:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)

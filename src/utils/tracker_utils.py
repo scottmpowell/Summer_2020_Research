@@ -1,12 +1,14 @@
 import cv2 as cv
 import numpy as np
 
-class trackee:
+class Trackee:
     # Inititializer
     def __init__(self, bbox, number, frame):
         self.tracker = cv.TrackerCSRT_create()
         self.bbox = bbox
         self.number = number
+        self.number_right = None
+        self.number_left = None
         self.tracker.init(frame, self.bbox)
 
     def __str__(self):
@@ -56,9 +58,6 @@ class Ball:
         Set center to be the center point of the rectangle saved in bbox
         """
         self.ctr = (self.bbox[0] + (self.bbox[2] // 2), self.bbox[1] + (self.bbox[3] //2))
-
-    def set_box(self, bbox):
-        self.bbox = bbox
 
     def draw_box(self, frame):
         """
