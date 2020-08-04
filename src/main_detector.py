@@ -28,21 +28,21 @@ from utils.utils import *
 
 #net = cv.dnn.readNet("goturn.caffemodel", "goturn.prototxt")
 
-def pause_video():
+def pause_video(frame, empty_frame):
     global pause 
     cv.setMouseCallback("Video", handler)
     while pause:
-        k = cv.waitKey(5) & 0xff
-        check_commands(k)
+        k = cv.waitKey(1000) & 0xff
+        check_commands(k, frame, empty_frame)
 
-def check_commands(k, frame):
-        global empty_frame, pause, is_deleting, trackers, is_tracking, imgno, im0 
+def check_commands(k, frame, empty_frame):
+        global pause, is_deleting, trackers, is_tracking, imgno, im0 
         cv.setMouseCallback("Video", handler)
         if k == ord('q'):
             sys.exit()
         elif k == ord('p'):
             pause = not pause 
-            pause_video()
+            pause_video(frame, empty_frame)
         elif k == ord('s'):
             num_trackers = begin_track(empty_frame, trackers)
             if num_trackers > 0:
@@ -57,7 +57,7 @@ def check_commands(k, frame):
             if pause:
                 if is_deleting == True:
                     frame = im0.copy()
-                    redraw()
+                    redraw(empty_frame, frame)
 
                 is_deleting = not is_deleting
         elif k == ord('l'):
@@ -65,9 +65,9 @@ def check_commands(k, frame):
             # List bounding box of ball
 
 
-def redraw(empty_frame, frame):
-    """redraw takes no arguments. It updates the frame and tracked objects, and then shows the image."""
-    global is_tracking, trackers, has_ball, ball_tracker, ball_bbox, has_ball_tracker
+def redraw(frame, empty_frame):
+    """redraw takes annotated and unannotated frames. It updates the frame and tracked objects, and then shows the image."""
+    global is_tracking, trackers, ball_tracker, ball_bbox
     if is_tracking:
         for key in trackers:
             track_ret, trackers[key].bbox = trackers[key].tracker.update(empty_frame)
@@ -76,7 +76,7 @@ def redraw(empty_frame, frame):
                 # Tracking success
                 p1 = (int(trackers[key].bbox[0]), int(trackers[key].bbox[1]))
                 p2 = (int(trackers[key].bbox[0] + trackers[key].bbox[2]), int(trackers[key].bbox[1] + trackers[key].bbox[3]))
-                cv.rectangle(frame, p1, p2, (255,0,0), 2, 1)
+                cv.rectangle(frame, p1, p2, (255,255,255), 2, 1)
             else :
                 # Tracking failure
                 pass
@@ -99,17 +99,16 @@ def handler(event, x, y, flags, param):
         return
         
      
-# Notes on global variables
-# empty_frame: raw footage of video
-# frame: final image to show after both detection and tracking
-# im0: original "to show frame" from yolov5. shows detection but not tracking
-
 def detect(opt, ball, save_img=False):
-    global empty_frame, frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno, im0
+    """
+    Main function, a heavily modifid YOLOv5
+    """
+    global empty_frame, frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, ball_tracker, imgno, im0
 
     future_frames = []
     past_frames = []
     present_frame = None
+    player_dict = dict()
 
 
     # Index of frame that will next contain the ball
@@ -247,6 +246,7 @@ def detect(opt, ball, save_img=False):
             #frame = ball.draw_box(im0)
 
             if present_frame:
+                guessed = False
                 present_detections, present_ball_info, present_det = present_frame[1], present_frame[2], present_frame[3]
                 no_detections = present_frame[0].copy()
                 
@@ -260,39 +260,60 @@ def detect(opt, ball, save_img=False):
                 if not ball.has_tracker:
                     if present_ball_info:
                         distance = ball.distance(find_center(b1, b2))
-                        if distance is not None and distance < 200:
+                        if distance is None or distance < 200:
                             # If no tracker, set tracker on this ball
                             ball.update(present_ball_info[0], present_frame[0])
                             ball.has_ball = True
-                        else:
-                            # If no tracker, set tracker on this ball
-                            ball.update(present_ball_info[0], present_frame[0])
-                            ball.has_ball = True
+                            
                     else:
                         if next_ball_frame is None or next_ball_frame < 0:
                             next_ball_frame = find_next_ball(future_frames)
+                            
 
-                        if next_ball_frame is not None and next_ball_frame != 0:
-                            # Tracker failed, ball detected in < 100 frames
+                        # Tracker failed, ball detected in < 100 frames
+                        if next_ball_frame is not None and next_ball_frame < 50:
+                            
+
+                            
+                            #print(future_frames[next_ball_frame][2])
                             f1, f2 = xyxy2pts(future_frames[next_ball_frame][2][0])
                             # Interpolate box
+                            if ball.bbox == (0,0,0,0):
+                                ball.bbox = ball.last_bbox
 
-                            i1 = (int((ball.last_bbox[0] + ((f1[0] - ball.last_bbox[0])//next_ball_frame))), int(ball.last_bbox[1] + ((f1[1] - ball.last_bbox[1])//next_ball_frame)))
-                            i2 = ((ball.last_bbox[0] + ball.last_bbox[2] + ((f2[0] - ball.last_bbox[0] - ball.last_bbox[2])//next_ball_frame)), ball.last_bbox[1] + ball.last_bbox[3] + ((f1[1] - ball.last_bbox[1] - ball.last_bbox[3])//next_ball_frame))
+                            # Reduce false positives
+                            inference_change_p1x = (f1[0] - ball.bbox[0]) // (next_ball_frame + 1)
+                            inference_change_p1y = (f1[1] - ball.bbox[1]) // (next_ball_frame + 1)
+                            
+                            if inference_change_p1x > 100 or inference_change_p1y > 100:
+                                pass
 
-                            ball.pts2box(i1,i2)
-                            ball.box2ctr()
-                            ball.has_ball = True
+                            else:
+                                i1 = (int(ball.bbox[0] + (f1[0] - ball.bbox[0]) // (next_ball_frame + 1)), int(ball.bbox[1] + (f1[1] - ball.bbox[1]) //(next_ball_frame + 1)))
+                                i2 = (int((ball.bbox[0] + ball.bbox[2]) + (f2[0] - (ball.bbox[0] + ball.bbox[2])) // (next_ball_frame + 1)), int((ball.bbox[1] + ball.bbox[3]) + (f2[1] - (ball.bbox[1] + ball.bbox[3])) //(next_ball_frame + 1)))
+
+                                
+                                # Do not change last_bbox, as we will use that to approximate ball until found
+                                ball.bbox = pts2box(i1,i2)
+                                #print(ball.last_bbox, ball.bbox)
+                                ball.box2ctr()
+                                ball.has_ball = True
+                            
+                            if next_ball_frame == 0:
+                                next_ball_frame = None
                             
                         else:
                             # Tracker failed, ball not detected for 100 frames
                             ball.has_ball = False
+
                 else: # ball has tracker
                     if present_ball_info:
+                        distance = ball.distance(find_center(b1, b2))
                         if distance is not None and distance < 200:
                             # If ball is close to last ball, it's probably the same one
                             ball.update(present_ball_info[0], present_frame[0])
                             ball.has_ball = True
+                    
 
 
 
@@ -311,55 +332,69 @@ def detect(opt, ball, save_img=False):
                         else:
                             ball_check = False
 
-                        if save_img or view_img:  # Add bbox to image
+                        
+                        draw_object = False
+                        if view_img:
                             label = '%s %.2f' % (names[int(cls)], conf)
+                            # Class: Ball
                             if "ball" in label:
                                 pass
+
+                            # Class: Net
+                            elif "net" in label:
+                                if opt.all:
+                                    draw_object = True
+                                        
+                            # Class: Backboard
+                            elif "backboard" in label:
+                                if opt.all:
+                                    draw_object = True
+                                if ball_check or distance < 100:
+                                    important_event = 200
+
+                            # Class: Person
+                            elif "person" in label:
+                                if opt.all or opt.people:
+                                    draw_object = True
+
+                            # Class: Number
                             else:
-                                if "net" in label:
-                                    if ball_check:
-                                        pass
-                                elif "backboard" in label:
-                                    if ball_check or distance < 150:
-                                        important_event = 150
-                                        pass
-                                        #print("shot")
+                                pass
 
-                                if opt.all or ("person" in label and opt.people):
-                                    #if ball.contained_in(c1,c2) or ball.distance(find_center(c1,c2)) < 200:
-                                    if ball_check:
-                                        plot_one_box(xyxy, present_frame[0], label=label, color=[0,255,0], line_thickness=3)
-                                    elif distance < 200:
+                            # Draw object, color coded by proximity to ball
+                            if draw_object:
+                                if ball_check:
+                                    plot_one_box(xyxy, present_frame[0], label=label, color=[0,255,0], line_thickness=3)
+                                elif distance is not None and distance < 200:
                                         plot_one_box(xyxy, present_frame[0], label=label, color=[0,0,255], line_thickness=3)
-                                    else:
-                                        plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
+                                else:
+                                    plot_one_box(xyxy, present_frame[0], label=label, color=[255,0,0], line_thickness=3)
 
 
-                    if num_checks > len(present_det)//2:
-                        print(ball.bbox)
             if ball.has_ball:
                 ball.draw_box(present_frame[0])
+
+            if is_tracking:
+                present_frame[0] = redraw(present_frame[0], no_detections)
 
             # Stream results
             if view_img:
                 if present_frame:
                     cv2.imshow("Video", present_frame[0]) 
-                    if past_frames[0]:
-                        if past_frames[0][2]:
-                            pass
-                            #print("ball seen at", past_frames[0][3])
+
                 k = cv2.waitKey(1)
                 if k == ord('q'):  # q to quit
                     raise StopIteration
                 else:
                     if present_frame:
-                        check_commands(k, present_frame[0])
+                        check_commands(k, present_frame[0], no_detections)
 
             future_frames.append([empty_frame, found, ball_detect_info, det])
             if len(future_frames) >= 100:
+
+                # Previous frames only need annotated frame and present frame, as previous ball is already known
                 if present_frame:
-                    present_frame.append(no_detections)
-                past_frames.append(present_frame)
+                    past_frames.append([present_frame[0], no_detections])
                 if len(past_frames) >= 100:
                     past_frames.pop(0)
                 present_frame = future_frames.pop(0)
@@ -367,10 +402,13 @@ def detect(opt, ball, save_img=False):
             # Decrement next_ball_frame, so it points to correct frame
             if next_ball_frame:
                 next_ball_frame -= 1
+                if next_ball_frame < 0:
+                    next_ball_frame = None
+
 
             if important_event > 0:
                 vid_writer_annotated.write(past_frames[0][0])
-                vid_writer_bare.write(past_frames[0][4])
+                vid_writer_bare.write(past_frames[0][1])
                 important_event -= 1
 
 
@@ -389,7 +427,7 @@ if __name__ == "__main__":
     parser.add_argument('-a', '--all', action='store_true', help='show everything')
 
     parser.add_argument('-s', '--source', type=str, default='/home/scott/MiddballHam.mp4', help='source')  # file/folder, 0 for webcam
-    parser.add_argument('-o', '--output', type=str, default='inference/output', help='output folder')  # output folder
+    parser.add_argument('-o', '--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=640, help='inference size (pixels)')
     parser.add_argument('-c', '--conf-thres', type=float, default=0.4, help='object confidence threshold')
     parser.add_argument('--iou-thres', type=float, default=0.5, help='IOU threshold for NMS')
@@ -409,13 +447,12 @@ if __name__ == "__main__":
     out = cv.VideoWriter("highlights.avi", -1, 20.0, (1280,720))
 
     # Initialize global variables. Additionally, create an empty dictionary and set is_tracking to False until an object is selected
-    global frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, has_ball, ball_tracker, imgno, has_ball_tracker
+    global frame, bbox, video, tracker, is_tracking, trackers, pause, is_deleting, ball_tracker, imgno, has_ball_tracker
     imgno = 1
     is_tracking = False
     is_deleting = False
     trackers = dict()
     pause = False
-    has_ball = False
     ball_tracker = cv2.TrackerKCF_create()
     has_ball_tracker = False
     ball = Ball()
@@ -432,16 +469,5 @@ if __name__ == "__main__":
 
     with torch.no_grad():
         detect(opt, ball)
-    """
-        # Start timer
-        timer = cv.getTickCount()
-        # Calculate Frames per second (FPS)
-        fps = cv.getTickFrequency() / (cv.getTickCount() - timer)
-        # Display tracker type on frame
-        cv.putText(frame, "Basketball Tracker", (100,20), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50),2)
-        # Display FPS on frame
-        cv.putText(frame, "FPS : " + str(int(fps)), (100,50), cv.FONT_HERSHEY_SIMPLEX, 0.75, (50,170,50), 2)
-    """
-
     # release the file pointers
     video.release()
